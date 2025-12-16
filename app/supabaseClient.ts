@@ -4,7 +4,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("FALTAN VARIABLES: Asegúrate de tener NEXT_PUBLIC_SUPABASE_URL y ANON_KEY en Vercel")
+  throw new Error("FALTAN VARIABLES: El sistema no encuentra las llaves de Supabase")
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
