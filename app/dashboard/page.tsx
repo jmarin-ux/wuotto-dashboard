@@ -2,10 +2,10 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabaseClient' 
 import { useRouter } from 'next/navigation' 
-import jsPDF from 'jspdf' // Librería para generar el PDF
+import jsPDF from 'jspdf' 
 
 // ====================================================================
-// 1. TIPOS
+// 1. TIPOS Y CONFIGURACIÓN
 // ====================================================================
 interface Ticket {
     id: number;
@@ -54,103 +54,92 @@ const getStatusStyles = (estatus: string) => {
 }
 
 // ====================================================================
-// 2. FUNCIÓN GENERADORA DE PDF
+// 2. GENERADOR DE PDF
 // ====================================================================
-const generarPDF = async (ticket: Ticket, evidencias: Evidencia[], esSnapshot = false) => {
-    const doc = new jsPDF();
-    const [servicio, empresa, cliente] = (ticket.tipo_mantenimiento || "").split('|');
-    
-    // Encabezado
-    doc.setFillColor(18, 28, 50); // Color azul oscuro Wuotto
-    doc.rect(0, 0, 210, 25, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("WUOTTO - REPORTE DE SERVICIO", 10, 12);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`FOLIO: ${ticket.codigo_servicio}`, 10, 18);
-    doc.text(esSnapshot ? "(VERSIÓN HISTÓRICA)" : "", 150, 18);
-
-    // Datos Generales
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    let y = 35;
-    
-    doc.setFont("helvetica", "bold"); doc.text("CLIENTE:", 10, y);
-    doc.setFont("helvetica", "normal"); doc.text(cliente || "N/A", 40, y);
-    
-    doc.setFont("helvetica", "bold"); doc.text("FECHA:", 110, y);
-    doc.setFont("helvetica", "normal"); doc.text(new Date(ticket.fecha_solicitud).toLocaleDateString(), 140, y);
-    y += 7;
-
-    doc.setFont("helvetica", "bold"); doc.text("SUCURSAL:", 10, y);
-    doc.setFont("helvetica", "normal"); doc.text(empresa || "N/A", 40, y);
-    y += 10;
-
-    doc.setFont("helvetica", "bold"); doc.text("PROBLEMA REPORTADO:", 10, y);
-    y += 5;
-    const splitProblema = doc.splitTextToSize(ticket.detalle_problema || "Sin detalle", 190);
-    doc.setFont("helvetica", "normal"); doc.text(splitProblema, 10, y);
-    y += (splitProblema.length * 5) + 5;
-
-    // Reporte Técnico
-    doc.setDrawColor(200);
-    doc.line(10, y, 200, y);
-    y += 10;
-    
-    doc.setFont("helvetica", "bold"); doc.text("DIAGNÓSTICO Y ACCIONES:", 10, y);
-    y += 5;
-    const splitDiag = doc.splitTextToSize(ticket.diagnostico || "Sin diagnóstico registrado.", 190);
-    doc.setFont("helvetica", "normal"); doc.text(splitDiag, 10, y);
-    y += (splitDiag.length * 5) + 5;
-
-    doc.setFont("helvetica", "bold"); doc.text("MATERIALES:", 10, y);
-    y += 5;
-    const splitMat = doc.splitTextToSize(ticket.materiales || "N/A", 190);
-    doc.setFont("helvetica", "normal"); doc.text(splitMat, 10, y);
-    y += (splitMat.length * 5) + 5;
-
-    doc.setFont("helvetica", "bold"); doc.text("RECOMENDACIONES:", 10, y);
-    y += 5;
-    const splitRec = doc.splitTextToSize(ticket.recomendaciones || "N/A", 190);
-    doc.setFont("helvetica", "normal"); doc.text(splitRec, 10, y);
-    y += (splitRec.length * 5) + 10;
-
-    // Tiempos
-    doc.setFillColor(240, 240, 240);
-    doc.rect(10, y, 190, 15, 'F');
-    doc.setFont("helvetica", "bold"); 
-    doc.text(`INICIO: ${ticket.hora_inicio ? new Date(ticket.hora_inicio).toLocaleString() : '--'}`, 15, y + 10);
-    doc.text(`FIN: ${ticket.hora_fin ? new Date(ticket.hora_fin).toLocaleString() : '--'}`, 110, y + 10);
-    y += 25;
-
-    // Evidencias (Fotos)
-    if (y > 250) { doc.addPage(); y = 20; }
-    doc.setFont("helvetica", "bold"); doc.text("EVIDENCIA FOTOGRÁFICA:", 10, y);
-    y += 10;
-
-    // Nota: Las imágenes de Supabase pueden tener problemas de CORS en PDF client-side.
-    // Intentamos agregarlas como links si fallan, o placeholders.
-    for (let i = 0; i < evidencias.length; i++) {
-        if (y > 250) { doc.addPage(); y = 20; }
-        const ev = evidencias[i];
+const generarPDF = (ticket: Ticket, evidencias: Evidencia[], esSnapshot = false) => {
+    try {
+        const doc = new jsPDF();
+        const [servicio, empresa, cliente] = (ticket.tipo_mantenimiento || "").split('|');
         
-        doc.setFontSize(8);
-        doc.text(`Foto ${i+1}: ${ev.descripcion}`, 10, y);
-        doc.setTextColor(0, 0, 255);
-        doc.textWithLink("VER IMAGEN EN NAVEGADOR", 10, y + 5, { url: ev.url_foto });
-        doc.setTextColor(0, 0, 0);
+        // Encabezado
+        doc.setFillColor(18, 28, 50); 
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("REPORTE DE SERVICIO", 10, 15);
         doc.setFontSize(10);
-        y += 15;
-    }
+        doc.setFont("helvetica", "normal");
+        doc.text(`FOLIO: ${ticket.codigo_servicio}`, 10, 22);
+        if(esSnapshot) doc.text("(VERSIÓN HISTÓRICA)", 150, 22);
 
-    doc.save(`WUOTTO_REPORTE_${ticket.codigo_servicio}.pdf`);
+        // Datos
+        doc.setTextColor(0, 0, 0);
+        let y = 40;
+        
+        const agregarDato = (titulo: string, valor: string, x: number) => {
+            doc.setFont("helvetica", "bold"); doc.text(titulo, x, y);
+            doc.setFont("helvetica", "normal"); doc.text(valor || "N/A", x, y + 5);
+        };
+
+        agregarDato("CLIENTE:", cliente, 10);
+        agregarDato("SUCURSAL:", empresa, 70);
+        agregarDato("FECHA:", new Date(ticket.fecha_solicitud).toLocaleDateString(), 140);
+        y += 15;
+
+        doc.setFont("helvetica", "bold"); doc.text("PROBLEMA REPORTADO:", 10, y); y+=5;
+        doc.setFont("helvetica", "normal"); 
+        const splitProb = doc.splitTextToSize(ticket.detalle_problema || "Sin detalle", 190);
+        doc.text(splitProb, 10, y);
+        y += (splitProb.length * 5) + 10;
+
+        // Cuerpo Técnico
+        doc.setLineWidth(0.5); doc.setDrawColor(200); doc.line(10, y, 200, y); y += 10;
+        
+        const secciones = [
+            { t: "DIAGNÓSTICO TÉCNICO:", v: ticket.diagnostico },
+            { t: "MATERIALES UTILIZADOS:", v: ticket.materiales },
+            { t: "RECOMENDACIONES:", v: ticket.recomendaciones }
+        ];
+
+        secciones.forEach(sec => {
+            doc.setFont("helvetica", "bold"); doc.text(sec.t, 10, y); y+=5;
+            doc.setFont("helvetica", "normal");
+            const splitTxt = doc.splitTextToSize(sec.v || "---", 190);
+            doc.text(splitTxt, 10, y);
+            y += (splitTxt.length * 5) + 5;
+        });
+
+        // Tiempos
+        y += 5;
+        doc.setFillColor(240, 240, 240); doc.rect(10, y, 190, 15, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.text(`INICIO: ${ticket.hora_inicio ? new Date(ticket.hora_inicio).toLocaleString() : '--'}`, 15, y+10);
+        doc.text(`FIN: ${ticket.hora_fin ? new Date(ticket.hora_fin).toLocaleString() : '--'}`, 110, y+10);
+        y += 25;
+
+        // Evidencias (Links)
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold"); doc.text("EVIDENCIAS FOTOGRÁFICAS:", 10, y); y += 10;
+
+        evidencias.forEach((ev, i) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${i+1}. ${ev.descripcion}`, 10, y);
+            doc.setTextColor(0, 0, 255);
+            doc.textWithLink("[CLIC PARA VER FOTO]", 10, y + 5, { url: ev.url_foto });
+            y += 12;
+        });
+
+        doc.save(`REPORTE_${ticket.codigo_servicio}.pdf`);
+    } catch (e: any) {
+        alert("Error generando PDF: " + e.message);
+    }
 };
 
-
 // ====================================================================
-// 3. MODAL DETALLE
+// 3. MODAL DETALLE (ESTILO EJECUTIVO + FUNCIONALIDAD)
 // ====================================================================
 const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: { ticket: Ticket, onClose: () => void, perfiles: Perfil[], usuarioActivo: string, rolUsuario: string }) => {
     if (!ticket) return null;
@@ -184,6 +173,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
         load();
     }, [ticket.id]);
 
+    // --- ACCIONES ---
     const iniciarServicio = async () => {
         if (!confirm("¿Iniciar reloj de servicio?")) return;
         setCargando(true);
@@ -232,7 +222,10 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
         setSubiendoFoto(true);
         const file = e.target.files[0];
         const name = `${ticket.id}-${Date.now()}.${file.name.split('.').pop()}`;
-        await supabase.storage.from('evidencias').upload(name, file);
+        // Aseguramos subida
+        const { error } = await supabase.storage.from('evidencias').upload(name, file);
+        if(error) { alert("Error subiendo: " + error.message); setSubiendoFoto(false); return; }
+        
         const { data: { publicUrl } } = supabase.storage.from('evidencias').getPublicUrl(name);
         const desc = prompt("Descripción:") || "Evidencia";
         const { data } = await supabase.from('evidencias').insert({ ticket_id: ticket.id, url_foto: publicUrl, descripcion: desc, autor_email: usuarioActivo }).select().single();
@@ -249,6 +242,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4 font-sans uppercase">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                 
+                {/* 1. HEADER LIMPIO */}
                 <div className="bg-[#121c32] px-6 py-5 flex justify-between items-center text-white shrink-0">
                     <div>
                         <div className="flex items-center gap-3">
@@ -260,6 +254,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-lg">✕</button>
                 </div>
 
+                {/* 2. TABS ELEGANTES */}
                 <div className="flex border-b border-slate-200 bg-white shrink-0 px-6">
                     {['info', 'reporte', 'versiones'].map((tab) => {
                         if (tab === 'versiones' && !esFinalizado) return null;
@@ -273,10 +268,14 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                     })}
                 </div>
 
+                {/* 3. CONTENIDO SCROLLABLE */}
                 <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
-                    {/* TAB INFO */}
+                    
+                    {/* >>> TAB INFO (DISEÑO DE FILAS EJECUTIVAS) <<< */}
                     {activeTab === 'info' && (
                         <div className="space-y-6">
+                            
+                            {/* Tarjeta de Datos */}
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="bg-slate-50 px-5 py-3 border-b border-slate-100">
                                     <h3 className="text-[10px] font-black text-slate-500 tracking-widest">FICHA DEL SERVICIO</h3>
@@ -295,26 +294,42 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Tarjeta Admin */}
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="bg-slate-50 px-5 py-3 border-b border-slate-100"><h3 className="text-[10px] font-black text-slate-500 tracking-widest">ASIGNACIÓN Y CONTROL</h3></div>
+                                <div className="bg-slate-50 px-5 py-3 border-b border-slate-100">
+                                    <h3 className="text-[10px] font-black text-slate-500 tracking-widest">ASIGNACIÓN Y CONTROL</h3>
+                                </div>
                                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-bold text-slate-400">ESTATUS DEL TICKET</label>
-                                        <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none">{["SIN ASIGNAR", "ASIGNADO", "EN PROCESO", "EJECUTADO", "CERRRADO", "CANCELADO"].map(o=><option key={o} value={o}>{o}</option>)}</select>
+                                        <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500">
+                                            {["SIN ASIGNAR", "ASIGNADO", "EN PROCESO", "EJECUTADO", "CERRRADO", "CANCELADO"].map(o=><option key={o} value={o}>{o}</option>)}
+                                        </select>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-bold text-slate-400">COORDINADOR</label>
-                                        <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"><option value="">-- SIN ASIGNAR --</option>{perfiles.filter(p=>p.rol==='coordinador').map(p=><option key={p.email} value={p.email}>{p.email}</option>)}</select>
+                                        <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500">
+                                            <option value="">-- SIN ASIGNAR --</option>
+                                            {perfiles.filter(p=>p.rol==='coordinador').map(p=><option key={p.email} value={p.email}>{p.email}</option>)}
+                                        </select>
                                     </div>
-                                    {rolUsuario !== 'operativo' && (<div className="md:col-span-2 pt-2"><button onClick={()=>guardarCambios(false)} disabled={cargando} className="w-full py-3 bg-[#121c32] text-white rounded-lg text-[10px] font-black tracking-widest hover:bg-[#0055b8]">GUARDAR CAMBIOS ADMINISTRATIVOS</button></div>)}
+                                    {rolUsuario !== 'operativo' && (
+                                        <div className="md:col-span-2 pt-2">
+                                            <button onClick={()=>guardarCambios(false)} disabled={cargando} className="w-full py-3 bg-[#121c32] text-white rounded-lg text-[10px] font-black tracking-widest hover:bg-[#0055b8] transition-colors">
+                                                GUARDAR CAMBIOS ADMINISTRATIVOS
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* TAB REPORTE */}
+                    {/* >>> TAB REPORTE <<< */}
                     {activeTab === 'reporte' && (
                         <div className="space-y-6">
+                            {/* Alerta de Estado */}
                             {esFinalizado && !modoEdicion && (
                                 <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
                                     <div className="flex items-center gap-3">
@@ -322,12 +337,13 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                         <div><p className="text-[10px] font-black text-emerald-800">REPORTE FINALIZADO</p><p className="text-[9px] font-medium text-emerald-600">Este servicio ha concluido.</p></div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={()=>generarPDF(ticket, evidencias)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-lg shadow-emerald-200 hover:bg-emerald-700">📥 PDF</button>
+                                        <button onClick={()=>generarPDF(ticket, evidencias)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95">📥 DESCARGAR PDF</button>
                                         <button onClick={habilitarCorreccion} className="bg-white text-emerald-700 px-4 py-2 rounded-lg text-[9px] font-black border border-emerald-200 shadow-sm hover:bg-emerald-50">🔓 CORREGIR</button>
                                     </div>
                                 </div>
                             )}
 
+                            {/* Reloj */}
                             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
                                 <div>
                                     <p className="text-[9px] font-bold text-slate-400 tracking-widest">TIEMPO DE EJECUCIÓN</p>
@@ -340,6 +356,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                 {ticket.hora_inicio && !ticket.hora_fin && <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded text-[9px] font-black animate-pulse">EN CURSO</div>}
                             </div>
 
+                            {/* Formulario Operativo */}
                             {ticket.hora_inicio && (
                                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
                                     <div className="space-y-1">
@@ -347,9 +364,17 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                         <textarea value={diagnostico} onChange={(e)=>setDiagnostico(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={4} placeholder="Describe detalladamente el trabajo realizado..." />
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 tracking-widest">MATERIALES UTILIZADOS</label><textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium outline-none" rows={3} placeholder="Lista de materiales..." /></div>
-                                        <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 tracking-widest">RECOMENDACIONES</label><textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium outline-none" rows={3} placeholder="Sugerencias..." /></div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 tracking-widest">MATERIALES UTILIZADOS</label>
+                                            <textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={3} placeholder="Lista de materiales..." />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 tracking-widest">RECOMENDACIONES</label>
+                                            <textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={3} placeholder="Sugerencias para el cliente..." />
+                                        </div>
                                     </div>
+                                    
+                                    {/* Evidencias */}
                                     <div className="border-t border-slate-100 pt-4">
                                         <div className="flex justify-between items-center mb-3">
                                             <label className="text-[9px] font-black text-slate-400 tracking-widest">EVIDENCIA FOTOGRÁFICA</label>
@@ -358,16 +383,20 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                         </div>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                             {evidencias.map(e => (
-                                                <div key={e.id} className="aspect-square rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200 shadow-sm" onClick={()=>window.open(e.url_foto)}>
+                                                <div key={e.id} className="aspect-square rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200 shadow-sm hover:shadow-md transition-shadow" onClick={()=>window.open(e.url_foto)}>
                                                     <img src={e.url_foto} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-2 pt-4"><p className="text-[8px] text-white text-center font-bold truncate">{e.descripcion}</p></div>
+                                                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-2 pt-4">
+                                                        <p className="text-[8px] text-white text-center font-bold truncate">{e.descripcion}</p>
+                                                    </div>
                                                 </div>
                                             ))}
-                                            {evidencias.length === 0 && <div className="col-span-4 py-8 text-center text-[10px] text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">No hay fotos cargadas aún</div>}
+                                            {evidencias.length === 0 && <div className="col-span-2 sm:col-span-4 py-8 text-center text-[10px] text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">No hay fotos cargadas aún</div>}
                                         </div>
                                     </div>
+
+                                    {/* Footer Botones */}
                                     <div className="flex gap-3 pt-2">
-                                        {editable && !esFinalizado && <button onClick={()=>guardarCambios(true)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black hover:bg-slate-200">GUARDAR AVANCE</button>}
+                                        {editable && !esFinalizado && <button onClick={()=>guardarCambios(true)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black hover:bg-slate-200 transition-colors">GUARDAR AVANCE</button>}
                                         {modoEdicion && <button onClick={()=>guardarCambios(true)} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[10px] font-black hover:bg-amber-400 shadow-lg shadow-amber-200">GUARDAR CORRECCIÓN</button>}
                                         {!esFinalizado && <button onClick={finalizarServicio} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-transform active:scale-95">FINALIZAR SERVICIO</button>}
                                     </div>
@@ -385,7 +414,6 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                                         <p className="text-[10px] font-black text-purple-700">VERSIÓN DEL {new Date(v.fecha_version).toLocaleDateString()}</p>
                                         <p className="text-[9px] text-slate-500 font-medium">Motivo: {v.razon_cambio}</p>
                                     </div>
-                                    {/* Aquí simulamos el PDF de la versión anterior usando los datos guardados */}
                                     <button 
                                         onClick={()=>generarPDF({ ...ticket, diagnostico: v.diagnostico_guardado, materiales: v.materiales_guardado, recomendaciones: v.recomendaciones_guardado }, v.evidencias_snapshot || [], true)} 
                                         className="text-[9px] font-bold text-blue-600 border border-blue-200 bg-white px-3 py-1.5 rounded-lg hover:bg-blue-50"
@@ -414,8 +442,8 @@ export default function DashboardPage() {
     const [rolUsuario, setRolUsuario] = useState('');
     const [usuarioActivo, setUsuarioActivo] = useState('');
     const [ticketSeleccionado, setTicketSeleccionado] = useState<Ticket | null>(null);
-    const [filtroAnio, setFiltroAnio] = useState<string>(ahora.getFullYear().toString());
     const [filtroMes, setFiltroMes] = useState<string>(ahora.getMonth().toString());
+    const [filtroAnio, setFiltroAnio] = useState<string>(ahora.getFullYear().toString());
     const [filtroEstatus, setFiltroEstatus] = useState<string | null>(null); 
     const [filtroCoordinador, setFiltroCoordinador] = useState<string | null>(null); 
     const router = useRouter();
@@ -442,7 +470,6 @@ export default function DashboardPage() {
         setCargando(false);
     };
 
-    // Lógica Filtros
     const periodos = useMemo(() => {
         const a = new Set<string>(); const m: any = {};
         servicios.forEach(s => { 
@@ -461,15 +488,14 @@ export default function DashboardPage() {
             return (filtroMes==='all' || d.getMonth().toString()===filtroMes) && d.getFullYear().toString()===filtroAnio;
         });
         
+        // Servicios EN CURSO (Lógica para el carrusel superior)
+        const enCurso = servicios.filter(s => s.hora_inicio && !s.hora_fin);
+
         // Stats Equipo
         const sc: any = {};
         filtered.forEach(s => { const c = (s.coordinador||'SIN ASIGNAR').toUpperCase(); sc[c]=(sc[c]||0)+1; });
 
-        // Servicios En Curso (Prioridad Alta)
-        // Son aquellos que tienen hora_inicio pero NO hora_fin
-        const enCurso = servicios.filter(s => s.hora_inicio && !s.hora_fin);
-
-        // Filtrado Final para el Grid principal
+        // Filtrado Final
         let visible = filtered;
         if(filtroCoordinador) visible = visible.filter(s => (s.coordinador||'').toUpperCase() === filtroCoordinador);
 
@@ -540,7 +566,7 @@ export default function DashboardPage() {
                     <div className="text-[8px] font-bold text-slate-400">FILTRANDO {total} REGISTROS</div>
                 </div>
 
-                {/* Filtro Equipo */}
+                {/* Filtro Equipo (Burbujas) */}
                 {rolUsuario === 'admin' && (
                     <div className="overflow-x-auto pb-2 no-scrollbar">
                         <div className="flex gap-2">
