@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '../supabaseClient' 
+// ✅ Importación correcta desde la carpeta lib en la raíz
+import { supabase } from '../../lib/supabaseClient' 
 import { useRouter } from 'next/navigation' 
 
 // ====================================================================
@@ -51,7 +52,7 @@ const getStatusStyles = (estatus: string) => {
 }
 
 // ====================================================================
-// 2. MODAL RESPONSIVO (SE ADAPTA AL CELULAR)
+// 2. MODAL RESPONSIVO
 // ====================================================================
 const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: { ticket: Ticket, onClose: () => void, perfiles: Perfil[], usuarioActivo: string, rolUsuario: string }) => {
     if (!ticket) return null;
@@ -117,7 +118,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 border rounded-xl overflow-hidden shadow-inner">
+                    <div className="bg-slate-5 border rounded-xl overflow-hidden shadow-inner">
                         <div className="bg-slate-100/50 px-4 py-2 border-b flex justify-between items-center">
                             <p className="text-[9px] font-black text-slate-500 tracking-widest">HISTORIAL</p>
                             <span className="text-[9px] font-bold text-slate-400">{historial.length} REGISTROS</span>
@@ -240,22 +241,40 @@ export default function DashboardPage() {
         return { anios: Array.from(anios).sort((a,b) => b.localeCompare(a)), meses: mesesPorAnio };
     }, [servicios]);
 
+    // ✅ LÓGICA DE FILTRADO CORREGIDA
     const { grouped, stats, totalGlobal, nombreFiltroActual } = useMemo(() => {
-        const counts: Record<string, number> = { "SIN ASIGNAR": 0, "ASIGNADO": 0, "EN PROCESO": 0, "PENDIENTE": 0, "EJECUTADO": 0, "REVISION CONTROL INTERNO": 0, "QA": 0, "CIERRE ADMINISTRATIVO": 0, "CERRRADO": 0, "CANCELADO": 0 };
+        // Inicializamos contadores con las claves EXACTAS que usamos en los botones
+        const counts: Record<string, number> = { 
+            "SIN ASIGNAR": 0, "ASIGNADO": 0, "EN PROCESO": 0, "PENDIENTE": 0, 
+            "EJECUTADO": 0, "REVISION CONTROL INTERNO": 0, "QA": 0, 
+            "CIERRE ADMINISTRATIVO": 0, "CERRRADO": 0, "CANCELADO": 0 
+        };
         const groups: Record<string, Ticket[]> = {};
         
         const byPeriod = servicios.filter(i => {
             if (filtroMes === 'all') return true;
+            if (!i.fecha_solicitud) return false;
             const d = new Date(i.fecha_solicitud);
             return d.getFullYear().toString() === filtroAnio && d.getMonth().toString() === filtroMes;
         });
 
         byPeriod.forEach(s => {
-            const st = (s.estatus || "SIN ASIGNAR").toUpperCase();
-            if (counts.hasOwnProperty(st)) counts[st]++;
-            else counts["SIN ASIGNAR"]++;
+            // Normalizamos el estatus que viene de la BD
+            let st = (s.estatus || "SIN ASIGNAR").toUpperCase().trim();
+            
+            // SI EL ESTATUS NO ESTÁ EN NUESTRA LISTA OFICIAL, LO FORZAMOS A "SIN ASIGNAR"
+            // Esto arregla el bug donde se contaban pero no se mostraban
+            if (!counts.hasOwnProperty(st)) {
+                st = "SIN ASIGNAR";
+            }
 
+            // Sumamos al contador
+            counts[st]++;
+
+            // Si hay filtro activo y no coincide, saltamos (pero ya lo contamos en stats)
             if (filtroEstatus && st !== filtroEstatus) return;
+
+            // Agregamos al grupo para mostrar
             if (!groups[st]) groups[st] = [];
             groups[st].push(s);
         });
@@ -295,7 +314,6 @@ export default function DashboardPage() {
                     <h1 className="text-lg font-black uppercase tracking-tighter italic leading-none">Wuotto</h1>
                 </div>
                 <div className="flex items-center gap-4 text-black font-bold">
-                    {/* Información de usuario oculta en móvil para ahorrar espacio */}
                     <div className="text-right hidden sm:block">
                         <p className="text-[9px] font-black text-[#0055b8] tracking-widest leading-none bg-blue-50 px-2 py-0.5 rounded-md inline-block">{rolUsuario}</p>
                         <p className="text-[10px] text-slate-700 truncate max-w-[200px] mt-0.5">{usuarioActivo}</p>
@@ -307,7 +325,6 @@ export default function DashboardPage() {
             {/* 2. BARRA DE CONTROLES Y LISTONES (FIJO) */}
             <div className="flex-none bg-[#f8fafc] px-4 md:px-6 pt-4 md:pt-6 pb-2 z-40 shadow-sm relative">
                 
-                {/* Filtros: En móvil se acomodan en columna o wrap, en PC en línea */}
                 <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between font-bold mb-4">
                     <div className="flex flex-wrap gap-2 md:gap-4 items-center w-full md:w-auto">
                         
@@ -328,7 +345,6 @@ export default function DashboardPage() {
                             </select>
                         </div>
                         
-                        {/* Divisor oculto en móvil */}
                         <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
 
                         <div className="bg-blue-50/80 px-4 py-2 rounded-xl border border-blue-100 flex flex-col justify-center min-w-[100px] w-full md:w-auto text-center md:text-left">
@@ -350,7 +366,6 @@ export default function DashboardPage() {
                     </button>
                 </div>
 
-                {/* Listones con Swipe Horizontal Nativo */}
                 <div className="flex gap-4 overflow-x-auto pb-4 pt-2 no-scrollbar px-1 snap-x">
                     <div className="flex-none flex flex-col items-center cursor-pointer group w-20 snap-start" onClick={()=>setFiltroEstatus(null)}>
                         <div className={`w-16 h-20 md:w-20 md:h-24 ${getStatusStyles('TOTAL').ribbon} rounded-b-[1.5rem] flex flex-col items-center justify-center shadow-lg relative transform transition-all duration-300 ${!filtroEstatus ? 'translate-y-1 ring-4 ring-slate-200' : ''}`}>
@@ -389,7 +404,7 @@ export default function DashboardPage() {
                                     <span className={`w-2.5 h-2.5 rounded-full ${getStatusStyles(status).dot} shadow-sm`}></span>
                                     <h2 className="text-xs font-black tracking-[0.25em] text-slate-800">{status} <span className="text-slate-400 ml-2 font-bold bg-slate-100 px-2 py-0.5 rounded-md">{items.length}</span></h2>
                                 </div>
-                                {/* GRID RESPONSIVO: 1 columna en celular, 2 en tablet, más en PC */}
+                                
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 uppercase font-bold text-black">
                                     {items.map((item) => {
                                         const [s_name, e_name, c_name] = (item.tipo_mantenimiento || "").split('|');
