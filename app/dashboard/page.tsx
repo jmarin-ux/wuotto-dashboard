@@ -183,7 +183,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
 export default function DashboardPage() {
     const ahora = new Date();
     
-    // Estados
+    // Estados Principales
     const [servicios, setServicios] = useState<Ticket[]>([]);
     const [perfiles, setPerfiles] = useState<Perfil[]>([]);
     const [cargando, setCargando] = useState(true);
@@ -195,6 +195,8 @@ export default function DashboardPage() {
     const [filtroAnio, setFiltroAnio] = useState<string>(ahora.getFullYear().toString());
     const [filtroMes, setFiltroMes] = useState<string>(ahora.getMonth().toString());
     const [filtroEstatus, setFiltroEstatus] = useState<string | null>(null); 
+    const [filtroCoordinador, setFiltroCoordinador] = useState<string | null>(null); // ✅ Nuevo Filtro
+
     const router = useRouter();
 
     useEffect(() => {
@@ -241,16 +243,9 @@ export default function DashboardPage() {
         return { anios: Array.from(anios).sort((a,b) => b.localeCompare(a)), meses: mesesPorAnio };
     }, [servicios]);
 
-    // ✅ LÓGICA DE FILTRADO CORREGIDA
-    const { grouped, stats, totalGlobal, nombreFiltroActual } = useMemo(() => {
-        // Inicializamos contadores con las claves EXACTAS que usamos en los botones
-        const counts: Record<string, number> = { 
-            "SIN ASIGNAR": 0, "ASIGNADO": 0, "EN PROCESO": 0, "PENDIENTE": 0, 
-            "EJECUTADO": 0, "REVISION CONTROL INTERNO": 0, "QA": 0, 
-            "CIERRE ADMINISTRATIVO": 0, "CERRRADO": 0, "CANCELADO": 0 
-        };
-        const groups: Record<string, Ticket[]> = {};
-        
+    // ✅ LÓGICA DE FILTRADO AVANZADA (COORD + ESTATUS)
+    const { grouped, stats, statsCoordinadores, totalGlobal, totalVisible, nombreFiltroActual } = useMemo(() => {
+        // 1. Filtrar por PERIODO primero
         const byPeriod = servicios.filter(i => {
             if (filtroMes === 'all') return true;
             if (!i.fecha_solicitud) return false;
@@ -258,39 +253,65 @@ export default function DashboardPage() {
             return d.getFullYear().toString() === filtroAnio && d.getMonth().toString() === filtroMes;
         });
 
+        // 2. Calcular estadísticas de COORDINADORES (Basado en el periodo, ANTES de filtrar por coord)
+        const coordsCount: Record<string, number> = {};
         byPeriod.forEach(s => {
-            // Normalizamos el estatus que viene de la BD
+            const c = (s.coordinador || "SIN ASIGNAR").toUpperCase();
+            coordsCount[c] = (coordsCount[c] || 0) + 1;
+        });
+
+        // 3. Filtrar por COORDINADOR (si está activo el filtro)
+        let visibleTickets = byPeriod;
+        if (filtroCoordinador) {
+            visibleTickets = visibleTickets.filter(s => (s.coordinador || "SIN ASIGNAR").toUpperCase() === filtroCoordinador);
+        }
+
+        // 4. Calcular estadísticas de ESTATUS y Agrupar (Basado en los tickets visibles)
+        const counts: Record<string, number> = { 
+            "SIN ASIGNAR": 0, "ASIGNADO": 0, "EN PROCESO": 0, "PENDIENTE": 0, 
+            "EJECUTADO": 0, "REVISION CONTROL INTERNO": 0, "QA": 0, 
+            "CIERRE ADMINISTRATIVO": 0, "CERRRADO": 0, "CANCELADO": 0 
+        };
+        const groups: Record<string, Ticket[]> = {};
+
+        visibleTickets.forEach(s => {
             let st = (s.estatus || "SIN ASIGNAR").toUpperCase().trim();
-            
-            // SI EL ESTATUS NO ESTÁ EN NUESTRA LISTA OFICIAL, LO FORZAMOS A "SIN ASIGNAR"
-            // Esto arregla el bug donde se contaban pero no se mostraban
-            if (!counts.hasOwnProperty(st)) {
-                st = "SIN ASIGNAR";
-            }
+            if (!counts.hasOwnProperty(st)) st = "SIN ASIGNAR";
 
-            // Sumamos al contador
-            counts[st]++;
+            counts[st]++; // Contamos todos los del coordinador/periodo
 
-            // Si hay filtro activo y no coincide, saltamos (pero ya lo contamos en stats)
+            // Si hay filtro de Estatus, solo agregamos al grupo ese estatus
             if (filtroEstatus && st !== filtroEstatus) return;
 
-            // Agregamos al grupo para mostrar
             if (!groups[st]) groups[st] = [];
             groups[st].push(s);
         });
 
         const label = filtroMes === 'all' ? 'HISTORIAL' : `${MESES[parseInt(filtroMes)]} ${filtroAnio}`;
-        return { grouped: groups, stats: counts, totalGlobal: byPeriod.length, nombreFiltroActual: label };
-    }, [servicios, filtroAnio, filtroMes, filtroEstatus]);
+        
+        return { 
+            grouped: groups, 
+            stats: counts, 
+            statsCoordinadores: coordsCount,
+            totalGlobal: byPeriod.length, // Total del periodo sin filtros
+            totalVisible: visibleTickets.length, // Total del coordinador
+            nombreFiltroActual: label 
+        };
+    }, [servicios, filtroAnio, filtroMes, filtroEstatus, filtroCoordinador]);
 
     const exportarCSV = () => {
         const bom = "\uFEFF";
         const headers = "Folio,Cliente,Empresa,Fecha,Estatus,Coordinador,Comentarios\n";
-        const rows = servicios.map(s => {
+        
+        // Exportamos lo que se ve actualmente (respetando filtros de coord y estatus)
+        const ticketsAExportar = Object.values(grouped).flat();
+
+        const rows = ticketsAExportar.map(s => {
             const [serv, emp, cli] = (s.tipo_mantenimiento || "").split('|');
             const comentarioLimpio = (s.comentarios || "").replace(/(\r\n|\n|\r)/gm, " ");
             return `${s.codigo_servicio},${cli?.trim() || ""},${emp?.trim() || ""},${s.fecha_solicitud},${s.estatus},${s.coordinador},${comentarioLimpio}`;
         }).join("\n");
+
         const blob = new Blob([bom + headers + rows], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
@@ -322,56 +343,98 @@ export default function DashboardPage() {
                 </div>
             </header>
 
-            {/* 2. BARRA DE CONTROLES Y LISTONES (FIJO) */}
-            <div className="flex-none bg-[#f8fafc] px-4 md:px-6 pt-4 md:pt-6 pb-2 z-40 shadow-sm relative">
+            {/* 2. BARRA DE CONTROLES (FIJO) */}
+            <div className="flex-none bg-[#f8fafc] z-40 shadow-sm relative flex flex-col">
                 
-                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between font-bold mb-4">
-                    <div className="flex flex-wrap gap-2 md:gap-4 items-center w-full md:w-auto">
-                        
-                        <div className="flex flex-col w-1/3 md:w-auto">
-                            <span className="text-[8px] text-slate-400 font-black tracking-widest ml-1 mb-0.5">AÑO</span>
-                            <select value={filtroAnio} onChange={(e)=>{setFiltroAnio(e.target.value); setFiltroMes('all');}} className="bg-slate-100 w-full border-none text-[10px] font-black p-2.5 rounded-xl outline-none cursor-pointer hover:bg-slate-200 transition-colors">
-                                {periodosDisponibles.anios.map(a => <option key={a} value={a}>{a}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="flex flex-col flex-1 md:w-auto">
-                            <span className="text-[8px] text-slate-400 font-black tracking-widest ml-1 mb-0.5">PERIODO</span>
-                            <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="bg-slate-100 w-full border-none text-[10px] font-black p-2.5 rounded-xl outline-none cursor-pointer hover:bg-slate-200 transition-colors">
-                                <option value="all">TODO EL AÑO</option>
-                                {Array.from(periodosDisponibles.meses[filtroAnio] || []).sort((a,b)=>a-b).map(m => (
-                                    <option key={m} value={m.toString()}>{MESES[m]}</option>
-                                ))}
-                            </select>
-                        </div>
-                        
-                        <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
-
-                        <div className="bg-blue-50/80 px-4 py-2 rounded-xl border border-blue-100 flex flex-col justify-center min-w-[100px] w-full md:w-auto text-center md:text-left">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">{nombreFiltroActual}</span>
-                            <div className="flex items-baseline justify-center md:justify-start gap-1.5">
-                                <span className="text-[10px] font-bold text-[#0055b8] tracking-tighter">TOTAL:</span>
-                                <span className="text-xl font-black text-[#0055b8] leading-none">{totalGlobal}</span>
+                {/* FILTROS SUPERIORES */}
+                <div className="px-4 md:px-6 pt-4 pb-2">
+                    <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between font-bold">
+                        <div className="flex flex-wrap gap-2 md:gap-4 items-center w-full md:w-auto">
+                            
+                            <div className="flex flex-col w-1/3 md:w-auto">
+                                <span className="text-[8px] text-slate-400 font-black tracking-widest ml-1 mb-0.5">AÑO</span>
+                                <select value={filtroAnio} onChange={(e)=>{setFiltroAnio(e.target.value); setFiltroMes('all');}} className="bg-slate-100 w-full border-none text-[10px] font-black p-2.5 rounded-xl outline-none cursor-pointer hover:bg-slate-200 transition-colors">
+                                    {periodosDisponibles.anios.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
                             </div>
-                        </div>
 
-                        {filtroEstatus && (
-                            <button onClick={()=>setFiltroEstatus(null)} className="w-full md:w-auto bg-rose-50 text-rose-600 border border-rose-100 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2">
-                                <span>✕</span> QUITAR FILTRO: {filtroEstatus}
-                            </button>
-                        )}
+                            <div className="flex flex-col flex-1 md:w-auto">
+                                <span className="text-[8px] text-slate-400 font-black tracking-widest ml-1 mb-0.5">PERIODO</span>
+                                <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="bg-slate-100 w-full border-none text-[10px] font-black p-2.5 rounded-xl outline-none cursor-pointer hover:bg-slate-200 transition-colors">
+                                    <option value="all">TODO EL AÑO</option>
+                                    {Array.from(periodosDisponibles.meses[filtroAnio] || []).sort((a,b)=>a-b).map(m => (
+                                        <option key={m} value={m.toString()}>{MESES[m]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
+
+                            <div className="bg-blue-50/80 px-4 py-2 rounded-xl border border-blue-100 flex flex-col justify-center min-w-[100px] w-full md:w-auto text-center md:text-left">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">{nombreFiltroActual}</span>
+                                <div className="flex items-baseline justify-center md:justify-start gap-1.5">
+                                    <span className="text-[10px] font-bold text-[#0055b8] tracking-tighter">TOTAL:</span>
+                                    <span className="text-xl font-black text-[#0055b8] leading-none">{filtroCoordinador ? totalVisible : totalGlobal}</span>
+                                </div>
+                            </div>
+
+                            {(filtroEstatus || filtroCoordinador) && (
+                                <button onClick={()=>{setFiltroEstatus(null); setFiltroCoordinador(null)}} className="w-full md:w-auto bg-rose-50 text-rose-600 border border-rose-100 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2">
+                                    <span>✕</span> LIMPIAR FILTROS
+                                </button>
+                            )}
+                        </div>
+                        <button onClick={exportarCSV} className="hidden md:flex bg-emerald-600 text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-200/50 hover:bg-emerald-700 active:scale-95 transition-all items-center gap-2">
+                            <span>📥</span> CSV
+                        </button>
                     </div>
-                    <button onClick={exportarCSV} className="hidden md:flex bg-emerald-600 text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-200/50 hover:bg-emerald-700 active:scale-95 transition-all items-center gap-2">
-                        <span>📥</span> CSV
-                    </button>
                 </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 no-scrollbar px-1 snap-x">
+                {/* ✅ NUEVO: LISTA DE COORDINADORES (EQUIPO) */}
+                {rolUsuario === 'admin' && (
+                    <div className="px-4 md:px-6 pb-2 overflow-x-auto no-scrollbar">
+                        <div className="flex gap-3 items-center min-w-max">
+                            <span className="text-[8px] font-black text-slate-300 tracking-widest rotate-180 py-2 writing-vertical-lr hidden sm:block">EQUIPO</span>
+                            
+                            {/* Botón TODOS */}
+                            <button 
+                                onClick={() => setFiltroCoordinador(null)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${!filtroCoordinador ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <div className="w-2 h-2 rounded-full bg-current"></div>
+                                <span className="text-[9px] font-bold tracking-wider">TODOS</span>
+                            </button>
+
+                            {/* Botones de Coordinadores */}
+                            {Object.entries(statsCoordinadores).map(([coord, count]) => {
+                                // Intentamos buscar un nombre corto si es email
+                                const shortName = coord.includes('@') ? coord.split('@')[0] : coord;
+                                const isSelected = filtroCoordinador === coord;
+
+                                return (
+                                    <button 
+                                        key={coord}
+                                        onClick={() => setFiltroCoordinador(isSelected ? null : coord)}
+                                        className={`group flex items-center gap-2 pr-3 pl-1 py-1 rounded-full border transition-all ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}
+                                    >
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black ${isSelected ? 'bg-white text-blue-600' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500'}`}>
+                                            {count}
+                                        </div>
+                                        <span className="text-[9px] font-bold tracking-wider">{shortName}</span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* LISTONES DE ESTATUS */}
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 no-scrollbar px-4 md:px-6 snap-x">
                     <div className="flex-none flex flex-col items-center cursor-pointer group w-20 snap-start" onClick={()=>setFiltroEstatus(null)}>
                         <div className={`w-16 h-20 md:w-20 md:h-24 ${getStatusStyles('TOTAL').ribbon} rounded-b-[1.5rem] flex flex-col items-center justify-center shadow-lg relative transform transition-all duration-300 ${!filtroEstatus ? 'translate-y-1 ring-4 ring-slate-200' : ''}`}>
                             <div className={`absolute top-0 left-0 w-3 h-3 ${getStatusStyles('TOTAL').ribbon} brightness-75 -translate-y-full rounded-t-full`}></div>
                             <div className={`absolute top-0 right-0 w-3 h-3 ${getStatusStyles('TOTAL').ribbon} brightness-75 -translate-y-full rounded-t-full`}></div>
-                            <span className="text-white text-xl md:text-3xl font-black leading-none">{totalGlobal}</span>
+                            <span className="text-white text-xl md:text-3xl font-black leading-none">{filtroCoordinador ? totalVisible : totalGlobal}</span>
                         </div>
                         <span className="mt-4 text-[7px] md:text-[9px] font-black text-slate-400 tracking-[0.1em] text-center max-w-[80px] leading-tight">TOTAL</span>
                     </div>
@@ -394,7 +457,7 @@ export default function DashboardPage() {
                 {Object.keys(grouped).length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-300">
                         <p className="text-4xl font-black mb-2">∅</p>
-                        <p className="text-sm font-bold tracking-widest text-center">NO HAY REGISTROS EN ESTE PERIODO</p>
+                        <p className="text-sm font-bold tracking-widest text-center">NO HAY REGISTROS</p>
                     </div>
                 ) : (
                     <div className="space-y-10 max-w-[1800px] mx-auto">
