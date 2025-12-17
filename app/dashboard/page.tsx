@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation' 
 
 // ====================================================================
-// 1. DEFINICIÓN DE TIPOS
+// 1. TIPOS Y CONFIGURACIÓN
 // ====================================================================
 interface Ticket {
     id: number;
@@ -16,7 +16,6 @@ interface Ticket {
     coordinador: string | null;
     personal_operativo: string | null;
     comentarios: string | null;
-    // Campos Reporte Técnico
     hora_inicio: string | null;
     hora_fin: string | null;
     diagnostico: string | null;
@@ -39,9 +38,7 @@ interface Evidencia {
 
 const MESES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
 
-// ====================================================================
-// 2. ESTILOS VISUALES
-// ====================================================================
+// Estilos de Estatus (Diseño de Listón Original)
 const getStatusStyles = (estatus: string) => {
     const s = (estatus || '').toUpperCase().replace(/\s/g, '');
     if (['CERRADO', 'CIERREADMINISTRATIVO', 'EJECUTADO'].includes(s)) 
@@ -57,279 +54,246 @@ const getStatusStyles = (estatus: string) => {
 }
 
 // ====================================================================
-// 3. COMPONENTE MODAL (CORAZÓN DEL REPORTE)
+// 2. MODAL EJECUTIVO (DISEÑO LIMPIO)
 // ====================================================================
 const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: { ticket: Ticket, onClose: () => void, perfiles: Perfil[], usuarioActivo: string, rolUsuario: string }) => {
     if (!ticket) return null;
 
-    // --- ESTADOS ---
     const [cargando, setCargando] = useState(false);
     const [activeTab, setActiveTab] = useState<'info' | 'reporte' | 'versiones'>('info');
-    const [modoEdicion, setModoEdicion] = useState(false); // Permite editar reportes cerrados
+    const [modoEdicion, setModoEdicion] = useState(false);
 
-    // Datos del Reporte (Campos PDF)
+    // Form States
     const [diagnostico, setDiagnostico] = useState(ticket.diagnostico || '');
     const [materiales, setMateriales] = useState(ticket.materiales || '');
     const [recomendaciones, setRecomendaciones] = useState(ticket.recomendaciones || '');
     const [evidencias, setEvidencias] = useState<Evidencia[]>([]);
+    const [versiones, setVersiones] = useState<any[]>([]);
     
-    // Datos Admin
+    // Admin States
     const [nuevoEstatus, setNuevoEstatus] = useState(ticket.estatus);
     const [nuevoCoordinador, setNuevoCoordinador] = useState(ticket.coordinador || '');
     const [nuevoOperativo, setNuevoOperativo] = useState(ticket.personal_operativo || '');
-    const [nuevoComentario, setNuevoComentario] = useState(''); 
     
-    // Historial y Fotos
-    const [versiones, setVersiones] = useState<any[]>([]);
     const [subiendoFoto, setSubiendoFoto] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // --- CARGA DE DATOS ---
     useEffect(() => {
-        const cargarDatos = async () => {
-            // Cargar Fotos
-            const { data: eData } = await supabase.from('evidencias')
-                .select('*').eq('ticket_id', ticket.id).order('creado_en', { ascending: true });
-            setEvidencias(eData || []);
-
-            // Cargar Historial de Versiones
-            const { data: vData } = await supabase.from('historial_versiones')
-                .select('*').eq('ticket_id', ticket.id).order('fecha_version', { ascending: false });
-            setVersiones(vData || []);
+        const load = async () => {
+            const { data: e } = await supabase.from('evidencias').select('*').eq('ticket_id', ticket.id).order('creado_en', { ascending: true });
+            setEvidencias(e || []);
+            const { data: v } = await supabase.from('historial_versiones').select('*').eq('ticket_id', ticket.id).order('fecha_version', { ascending: false });
+            setVersiones(v || []);
         };
-        cargarDatos();
+        load();
     }, [ticket.id]);
 
-    // --- LÓGICA DE NEGOCIO ---
-
+    // --- ACCIONES ---
     const iniciarServicio = async () => {
-        if (!confirm("¿Confirmar INICIO de trabajos? Se registrará la hora exacta.")) return;
+        if (!confirm("¿Iniciar reloj de servicio?")) return;
         setCargando(true);
-        try {
-            const { error } = await supabase.from('servicios')
-                .update({ hora_inicio: new Date().toISOString(), estatus: 'EN PROCESO' })
-                .eq('id', ticket.id);
-            if (error) throw error;
-            alert("⏰ Reloj iniciado.");
-            window.location.reload();
-        } catch (e: any) { alert(e.message); setCargando(false); }
+        await supabase.from('servicios').update({ hora_inicio: new Date().toISOString(), estatus: 'EN PROCESO' }).eq('id', ticket.id);
+        window.location.reload();
     };
-
-    const guardarAvance = async () => {
-        setCargando(true);
-        try {
-            await supabase.from('servicios')
-                .update({ diagnostico, materiales, recomendaciones })
-                .eq('id', ticket.id);
-            alert("💾 Avance guardado.");
-        } catch(e: any){ alert(e.message); }
-        finally { setCargando(false); }
-    }
 
     const finalizarServicio = async () => {
-        if (!diagnostico || evidencias.length === 0) return alert("⚠️ Error: Debes escribir un diagnóstico y subir al menos 1 foto.");
-        if (!confirm("¿FINALIZAR SERVICIO? Se cerrará el reporte.")) return;
-        
+        if (!diagnostico || evidencias.length === 0) return alert("⚠️ Requerido: Diagnóstico y al menos 1 Foto.");
+        if (!confirm("¿Finalizar y Cerrar reporte?")) return;
         setCargando(true);
-        try {
-            const { error } = await supabase.from('servicios')
-                .update({ 
-                    hora_fin: new Date().toISOString(), 
-                    estatus: 'EJECUTADO',
-                    diagnostico, materiales, recomendaciones
-                })
-                .eq('id', ticket.id);
-            if (error) throw error;
-            alert("✅ Servicio finalizado correctamente.");
-            window.location.reload();
-        } catch (e: any) { alert(e.message); setCargando(false); }
+        await supabase.from('servicios').update({ 
+            hora_fin: new Date().toISOString(), estatus: 'EJECUTADO', diagnostico, materiales, recomendaciones 
+        }).eq('id', ticket.id);
+        window.location.reload();
     };
 
-    // --- LÓGICA DE CORRECCIÓN (SNAPSHOTS) ---
     const habilitarCorreccion = async () => {
-        const razon = prompt("Escribe la razón de la corrección:");
+        const razon = prompt("Motivo de la corrección:");
         if (!razon) return;
-
         setCargando(true);
-        try {
-            // 1. Guardar copia de seguridad (Snapshot)
-            const { error } = await supabase.from('historial_versiones').insert({
-                ticket_id: ticket.id,
-                diagnostico_guardado: diagnostico,
-                materiales_guardado: materiales,
-                recomendaciones_guardado: recomendaciones,
-                evidencias_snapshot: evidencias,
-                creado_por: usuarioActivo,
-                razon_cambio: razon
-            });
-            if (error) throw error;
-
-            // 2. Activar edición
-            setModoEdicion(true); 
-            alert("🔓 Reporte desbloqueado. Se guardó una copia de la versión anterior.");
-        } catch (e: any) { alert(e.message); } finally { setCargando(false); }
+        await supabase.from('historial_versiones').insert({
+            ticket_id: ticket.id, diagnostico_guardado: diagnostico, materiales_guardado: materiales,
+            recomendaciones_guardado: recomendaciones, evidencias_snapshot: evidencias, creado_por: usuarioActivo, razon_cambio: razon
+        });
+        setModoEdicion(true);
+        setCargando(false);
+        alert("🔓 Edición habilitada.");
     };
 
-    const guardarCorreccion = async () => {
+    const guardarCambios = async (esCorreccion = false) => {
         setCargando(true);
-        try {
-            await supabase.from('servicios')
-                .update({ diagnostico, materiales, recomendaciones })
-                .eq('id', ticket.id);
-            alert("✅ Corrección aplicada. El reporte actual se ha actualizado.");
-            window.location.reload();
-        } catch (e: any) { alert(e.message); } finally { setCargando(false); }
+        const updates: any = { diagnostico, materiales, recomendaciones };
+        if (!esCorreccion) { // Admin updates
+            updates.estatus = nuevoEstatus;
+            updates.coordinador = nuevoCoordinador;
+            updates.personal_operativo = nuevoOperativo;
+        }
+        await supabase.from('servicios').update(updates).eq('id', ticket.id);
+        alert("✅ Guardado exitosamente.");
+        window.location.reload();
     };
 
-    // --- LÓGICA DE FOTOS ---
-    const handleSubirFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+    const handleFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.[0]) return;
         setSubiendoFoto(true);
-        try {
-            const fileName = `${ticket.id}-${Date.now()}.${file.name.split('.').pop()}`;
-            // Subir a bucket 'evidencias'
-            const { error: uErr } = await supabase.storage.from('evidencias').upload(fileName, file);
-            if (uErr) throw uErr;
-            
-            // Obtener URL
-            const { data: { publicUrl } } = supabase.storage.from('evidencias').getPublicUrl(fileName);
-            const desc = prompt("Descripción de la foto (Ej: Placa de datos):") || "Evidencia";
-            
-            // Guardar en BD
-            const { data: newEv, error: dErr } = await supabase.from('evidencias').insert({
-                ticket_id: ticket.id, url_foto: publicUrl, descripcion: desc, autor_email: usuarioActivo
-            }).select().single();
-            if (dErr) throw dErr;
-            
-            setEvidencias([...evidencias, newEv]);
-        } catch (e: any) { alert("Error foto: " + e.message); } 
-        finally { setSubiendoFoto(false); if(fileInputRef.current) fileInputRef.current.value=""; }
+        const file = e.target.files[0];
+        const name = `${ticket.id}-${Date.now()}.${file.name.split('.').pop()}`;
+        await supabase.storage.from('evidencias').upload(name, file);
+        const { data: { publicUrl } } = supabase.storage.from('evidencias').getPublicUrl(name);
+        const desc = prompt("Descripción:") || "Evidencia";
+        const { data } = await supabase.from('evidencias').insert({ ticket_id: ticket.id, url_foto: publicUrl, descripcion: desc, autor_email: usuarioActivo }).select().single();
+        if(data) setEvidencias([...evidencias, data]);
+        setSubiendoFoto(false);
     };
 
-    // --- RENDERIZADO DEL MODAL ---
+    // UI Helpers
     const [servicio, empresa, cliente] = (ticket.tipo_mantenimiento || "").split('|');
     const esFinalizado = !!ticket.hora_fin;
-    const puedeEditar = !esFinalizado || modoEdicion;
+    const editable = (!esFinalizado || modoEdicion);
 
     return (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex justify-center items-center z-[100] p-2 sm:p-4 font-sans uppercase">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col border border-slate-200">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4 font-sans uppercase">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                 
-                {/* HEADER */}
-                <div className="bg-[#121c32] px-5 py-4 flex justify-between items-center text-white shrink-0">
+                {/* 1. HEADER LIMPIO */}
+                <div className="bg-[#121c32] px-6 py-4 flex justify-between items-center text-white shrink-0">
                     <div>
-                        <h2 className="text-lg font-black tracking-tight italic">{ticket.codigo_servicio}</h2>
-                        <p className="text-[10px] text-slate-400 font-bold tracking-widest">{cliente}</p>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-black italic tracking-tight">{ticket.codigo_servicio}</h2>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded text-black ${getStatusStyles(ticket.estatus).badge}`}>{ticket.estatus}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-1">{cliente} — {empresa}</p>
                     </div>
-                    <button onClick={onClose} className="bg-white/10 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold">✕</button>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-lg">✕</button>
                 </div>
 
-                {/* TABS */}
-                <div className="flex border-b border-slate-200 bg-slate-50 shrink-0">
-                    <button onClick={()=>setActiveTab('info')} className={`flex-1 py-3 text-[10px] font-black tracking-widest ${activeTab==='info' ? 'bg-white text-[#0055b8] border-b-2 border-[#0055b8]' : 'text-slate-400'}`}>INFO</button>
-                    <button onClick={()=>setActiveTab('reporte')} className={`flex-1 py-3 text-[10px] font-black tracking-widest ${activeTab==='reporte' ? 'bg-white text-emerald-600 border-b-2 border-emerald-500' : 'text-slate-400'}`}>REPORTE</button>
-                    {esFinalizado && <button onClick={()=>setActiveTab('versiones')} className={`flex-1 py-3 text-[10px] font-black tracking-widest ${activeTab==='versiones' ? 'bg-white text-purple-600 border-b-2 border-purple-500' : 'text-slate-400'}`}>HISTORIAL ({versiones.length})</button>}
+                {/* 2. TABS ELEGANTES */}
+                <div className="flex border-b border-slate-200 bg-white shrink-0 px-6">
+                    {['info', 'reporte', 'versiones'].map((tab) => {
+                        if (tab === 'versiones' && !esFinalizado) return null;
+                        const active = activeTab === tab;
+                        return (
+                            <button key={tab} onClick={()=>setActiveTab(tab as any)} 
+                                className={`py-4 px-4 text-[10px] font-black tracking-widest border-b-2 transition-all ${active ? 'border-[#0055b8] text-[#0055b8]' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+                                {tab === 'info' ? 'DETALLES GENERALES' : tab === 'reporte' ? 'REPORTE TÉCNICO' : `HISTORIAL (${versiones.length})`}
+                            </button>
+                        )
+                    })}
                 </div>
 
-                <div className="p-5 overflow-y-auto flex-1 bg-white">
-                    {/* TAB INFO */}
+                {/* 3. CONTENIDO SCROLLABLE */}
+                <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+                    
+                    {/* >>> TAB INFO <<< */}
                     {activeTab === 'info' && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4 text-[11px] font-bold border-b pb-4">
-                                <div><span className="text-slate-400 text-[9px] block">SERVICIO</span><p className="text-[#0055b8]">{servicio}</p></div>
-                                <div><span className="text-slate-400 text-[9px] block">EMPRESA</span><p>{empresa}</p></div>
-                                <div className="col-span-2 bg-slate-50 p-3 rounded-lg"><span className="text-slate-400 text-[9px] block">DETALLE</span><p>{ticket.detalle_problema}</p></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Tarjeta de Datos */}
+                            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                <h3 className="text-[10px] font-black text-slate-400 border-b pb-2">DATOS DEL SERVICIO</h3>
+                                <div className="space-y-3">
+                                    <div><span className="text-[9px] font-bold text-slate-400 block">TIPO DE SERVICIO</span><p className="text-xs font-bold text-[#0055b8]">{servicio}</p></div>
+                                    <div><span className="text-[9px] font-bold text-slate-400 block">SOLICITADO EL</span><p className="text-xs font-bold text-slate-700">{new Date(ticket.fecha_solicitud).toLocaleDateString()}</p></div>
+                                    <div><span className="text-[9px] font-bold text-slate-400 block">PROBLEMA REPORTADO</span><p className="text-[10px] font-medium text-slate-600 normal-case leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">{ticket.detalle_problema}</p></div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black text-slate-400">ESTATUS ADMIN</label>
-                                <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2 bg-slate-100 rounded-lg text-xs font-bold">
-                                    {["SIN ASIGNAR", "ASIGNADO", "EN PROCESO", "EJECUTADO", "CERRRADO", "CANCELADO"].map(o=><option key={o} value={o}>{o}</option>)}
-                                </select>
-                                <button disabled={true} className="w-full bg-slate-100 text-slate-400 text-[10px] font-bold py-2 rounded-lg">GUARDAR CAMBIOS ADMIN (Desactivado en Demo)</button>
+
+                            {/* Tarjeta Admin */}
+                            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                <h3 className="text-[10px] font-black text-slate-400 border-b pb-2">GESTIÓN ADMINISTRATIVA</h3>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400">ESTATUS</label>
+                                        <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500">
+                                            {["SIN ASIGNAR", "ASIGNADO", "EN PROCESO", "EJECUTADO", "CERRRADO", "CANCELADO"].map(o=><option key={o} value={o}>{o}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400">COORDINADOR</label>
+                                        <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} disabled={rolUsuario==='operativo'} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-blue-500">
+                                            <option value="">-- SELECCIONAR --</option>
+                                            {perfiles.filter(p=>p.rol==='coordinador').map(p=><option key={p.email} value={p.email}>{p.email}</option>)}
+                                        </select>
+                                    </div>
+                                    {rolUsuario !== 'operativo' && (
+                                        <button onClick={()=>guardarCambios(false)} disabled={cargando} className="w-full py-3 bg-[#121c32] text-white rounded-lg text-[10px] font-black tracking-widest hover:bg-[#0055b8] transition-colors">
+                                            GUARDAR CAMBIOS
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* TAB REPORTE (OPERATIVO) */}
+                    {/* >>> TAB REPORTE <<< */}
                     {activeTab === 'reporte' && (
-                        <div className="space-y-5">
-                            {/* ALERTA CORRECCIÓN */}
+                        <div className="space-y-6">
+                            {/* Alerta de Estado */}
                             {esFinalizado && !modoEdicion && (
-                                <div className="bg-emerald-50 p-3 rounded-lg flex justify-between items-center border border-emerald-100">
-                                    <span className="text-[10px] font-bold text-emerald-700">✅ REPORTE CERRADO</span>
-                                    <button onClick={habilitarCorreccion} className="text-[9px] bg-white border border-emerald-200 px-3 py-1 rounded shadow-sm text-emerald-700 font-bold hover:bg-emerald-100">🔓 CORREGIR</button>
+                                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">✓</div>
+                                        <div><p className="text-[10px] font-black text-emerald-800">REPORTE FINALIZADO</p><p className="text-[9px] font-medium text-emerald-600">Este servicio ha concluido.</p></div>
+                                    </div>
+                                    <button onClick={habilitarCorreccion} className="bg-white text-emerald-700 px-4 py-2 rounded-lg text-[9px] font-black border border-emerald-200 shadow-sm hover:bg-emerald-50">🔓 CORREGIR</button>
                                 </div>
                             )}
 
-                            {/* RELOJ */}
-                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                <div className="text-[10px] font-bold text-slate-600">
-                                    <p>INICIO: {ticket.hora_inicio ? new Date(ticket.hora_inicio).toLocaleTimeString() : '--:--'}</p>
-                                    <p>FIN: {ticket.hora_fin ? new Date(ticket.hora_fin).toLocaleTimeString() : '--:--'}</p>
+                            {/* Reloj */}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                                <div>
+                                    <p className="text-[9px] font-bold text-slate-400 tracking-widest">TIEMPO DE EJECUCIÓN</p>
+                                    <div className="flex gap-4 mt-1">
+                                        <p className="text-xs font-black text-slate-700">INICIO: <span className="text-[#0055b8]">{ticket.hora_inicio ? new Date(ticket.hora_inicio).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</span></p>
+                                        <p className="text-xs font-black text-slate-700">FIN: <span className="text-[#0055b8]">{ticket.hora_fin ? new Date(ticket.hora_fin).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</span></p>
+                                    </div>
                                 </div>
-                                {!ticket.hora_inicio && <button onClick={iniciarServicio} className="bg-blue-600 text-white px-3 py-1 rounded text-[10px] font-black animate-pulse">▶ INICIAR</button>}
+                                {!ticket.hora_inicio && <button onClick={iniciarServicio} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-[10px] font-black shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all">▶ INICIAR RELOJ</button>}
+                                {ticket.hora_inicio && !ticket.hora_fin && <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded text-[9px] font-black animate-pulse">EN CURSO</div>}
                             </div>
 
-                            {/* INPUTS (SOLO VISIBLES SI INICIÓ) */}
+                            {/* Formulario Operativo */}
                             {ticket.hora_inicio && (
-                                <>
+                                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400">DIAGNÓSTICO (ACCIONES)</label>
-                                        <textarea value={diagnostico} onChange={(e)=>setDiagnostico(e.target.value)} disabled={!puedeEditar} className="w-full p-3 rounded-lg border border-slate-300 text-[11px] bg-white focus:ring-1 focus:ring-blue-500 outline-none disabled:bg-slate-100" rows={4} placeholder="Descripción del trabajo..." />
+                                        <label className="text-[9px] font-black text-slate-400 tracking-widest">DIAGNÓSTICO Y ACCIONES</label>
+                                        <textarea value={diagnostico} onChange={(e)=>setDiagnostico(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={3} placeholder="Describe el trabajo realizado..." />
                                     </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-slate-400">MATERIALES</label>
-                                            <textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!puedeEditar} className="w-full p-3 rounded-lg border text-[11px]" rows={3} />
+                                            <label className="text-[9px] font-black text-slate-400 tracking-widest">MATERIALES</label>
+                                            <textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={2} />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-slate-400">RECOMENDACIONES</label>
-                                            <textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!puedeEditar} className="w-full p-3 rounded-lg border text-[11px]" rows={3} />
+                                            <label className="text-[9px] font-black text-slate-400 tracking-widest">RECOMENDACIONES</label>
+                                            <textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!editable} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:bg-white focus:border-blue-500 outline-none transition-colors" rows={2} />
                                         </div>
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between">
-                                            <label className="text-[9px] font-black text-slate-400">EVIDENCIAS ({evidencias.length})</label>
-                                            {puedeEditar && <button onClick={()=>fileInputRef.current?.click()} className="text-[9px] font-bold text-blue-600">+ AGREGAR FOTO</button>}
-                                            <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleSubirFoto} />
+                                    
+                                    {/* Evidencias */}
+                                    <div className="border-t border-slate-100 pt-4">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="text-[9px] font-black text-slate-400 tracking-widest">EVIDENCIA FOTOGRÁFICA</label>
+                                            {editable && <button onClick={()=>fileInputRef.current?.click()} className="text-[9px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100 transition-colors">{subiendoFoto ? 'CARGANDO...' : '+ AGREGAR FOTO'}</button>}
+                                            <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleFoto} />
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-4 gap-3">
                                             {evidencias.map(e => (
-                                                <div key={e.id} className="aspect-square bg-slate-100 rounded-lg overflow-hidden relative border" onClick={()=>window.open(e.url_foto)}>
-                                                    <img src={e.url_foto} className="w-full h-full object-cover" />
-                                                    <div className="absolute bottom-0 w-full bg-black/60 text-[8px] text-white p-1 text-center truncate">{e.descripcion}</div>
+                                                <div key={e.id} className="aspect-square rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200 shadow-sm" onClick={()=>window.open(e.url_foto)}>
+                                                    <img src={e.url_foto} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                    <div className="absolute bottom-0 w-full bg-black/70 p-1 text-[7px] text-white text-center truncate">{e.descripcion}</div>
                                                 </div>
                                             ))}
+                                            {evidencias.length === 0 && <div className="col-span-4 py-4 text-center text-[10px] text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">Sin evidencias cargadas</div>}
                                         </div>
                                     </div>
 
-                                    {/* BOTONES ACCIÓN */}
-                                    <div className="pt-2 flex gap-2">
-                                        {puedeEditar && !esFinalizado && <button onClick={guardarAvance} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black">GUARDAR AVANCE</button>}
-                                        {modoEdicion && <button onClick={guardarCorreccion} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[10px] font-black">GUARDAR CORRECCIÓN</button>}
-                                        {!esFinalizado && <button onClick={finalizarServicio} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black">FINALIZAR Y CERRAR</button>}
+                                    {/* Footer Botones */}
+                                    <div className="flex gap-3 pt-2">
+                                        {editable && !esFinalizado && <button onClick={()=>guardarCambios(true)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black hover:bg-slate-200 transition-colors">GUARDAR AVANCE</button>}
+                                        {modoEdicion && <button onClick={()=>guardarCambios(true)} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[10px] font-black hover:bg-amber-400 shadow-lg shadow-amber-200">GUARDAR CORRECCIÓN</button>}
+                                        {!esFinalizado && <button onClick={finalizarServicio} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black hover:bg-emerald-700 shadow-lg shadow-emerald-200">FINALIZAR SERVICIO</button>}
                                     </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* TAB HISTORIAL */}
-                    {activeTab === 'versiones' && (
-                        <div className="space-y-3">
-                            {versiones.map(v => (
-                                <div key={v.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[9px] font-bold text-purple-600">VERSIÓN {new Date(v.fecha_version).toLocaleDateString()}</span>
-                                    </div>
-                                    <p className="text-[9px] text-slate-500"><span className="font-bold">RAZÓN:</span> {v.razon_cambio}</p>
-                                    <p className="text-[9px] text-slate-500"><span className="font-bold">POR:</span> {v.creado_por}</p>
                                 </div>
-                            ))}
-                            {versiones.length===0 && <p className="text-center text-[10px] text-slate-300">SIN CAMBIOS PREVIOS</p>}
+                            )}
                         </div>
                     )}
                 </div>
@@ -339,7 +303,7 @@ const ModalDetalle = ({ ticket, onClose, perfiles, usuarioActivo, rolUsuario }: 
 };
 
 // ====================================================================
-// 4. PÁGINA PRINCIPAL (DASHBOARD)
+// 3. DASHBOARD PAGE (DISEÑO PREMIUM)
 // ====================================================================
 export default function DashboardPage() {
     const ahora = new Date();
@@ -358,136 +322,159 @@ export default function DashboardPage() {
     useEffect(() => {
         const user = localStorage.getItem('USUARIO_ACTIVO');
         if (!user) router.replace('/login');
-        else obtenerDatos(user);
+        else loadData(user);
     }, []);
 
-    const obtenerDatos = async (emailLogin: string) => {
+    const loadData = async (email: string) => {
         setCargando(true);
-        try {
-            const { data: perfilData } = await supabase.from('perfiles').select('*').eq('email', emailLogin).single();
-            const rol = perfilData?.rol || 'operativo';
-            setRolUsuario(rol);
-
-            const { data: pData } = await supabase.from('perfiles').select('email, rol, nombre_completo');
-            setPerfiles(pData || []);
-
-            const idReal = (localStorage.getItem('TECNICO_SESION') || emailLogin).toUpperCase();
-            setUsuarioActivo(idReal);
-
-            let query = supabase.from('servicios').select('*');
-            if (rol === 'coordinador') query = query.eq('coordinador', emailLogin);
-            else if (rol === 'operativo') query = query.eq('personal_operativo', idReal);
-
-            const { data: sData } = await query.order('fecha_solicitud', { ascending: false });
-            setServicios(sData || []);
-        } catch (e) { console.error(e); } finally { setCargando(false); }
+        const { data: p } = await supabase.from('perfiles').select('*').eq('email', email).single();
+        setRolUsuario(p?.rol || 'operativo');
+        const { data: allP } = await supabase.from('perfiles').select('*');
+        setPerfiles(allP || []);
+        setUsuarioActivo((localStorage.getItem('TECNICO_SESION') || email).toUpperCase());
+        
+        let q = supabase.from('servicios').select('*');
+        if (p?.rol === 'coordinador') q = q.eq('coordinador', email);
+        else if (p?.rol === 'operativo') q = q.eq('personal_operativo', email);
+        const { data: s } = await q.order('fecha_solicitud', { ascending: false });
+        setServicios(s || []);
+        setCargando(false);
     };
 
+    // Lógica Filtros
     const periodos = useMemo(() => {
-        const anios = new Set<string>();
-        const meses: Record<string, Set<number>> = {};
-        servicios.forEach(s => {
-            if (!s.fecha_solicitud) return;
-            const d = new Date(s.fecha_solicitud);
-            const a = d.getFullYear().toString();
-            anios.add(a);
-            if (!meses[a]) meses[a] = new Set();
-            meses[a].add(d.getMonth());
+        const a = new Set<string>(); const m: any = {};
+        servicios.forEach(s => { 
+            if(!s.fecha_solicitud) return; 
+            const d = new Date(s.fecha_solicitud); 
+            a.add(d.getFullYear().toString());
+            if(!m[d.getFullYear()]) m[d.getFullYear()]=new Set();
+            m[d.getFullYear()].add(d.getMonth());
         });
-        return { anios: Array.from(anios).sort().reverse(), meses };
+        return { anios: Array.from(a).sort().reverse(), meses: m };
     }, [servicios]);
 
-    const { grouped, stats, statsCoordinadores, totalGlobal, totalVisible } = useMemo(() => {
+    const { grouped, stats, statsCoord, total } = useMemo(() => {
         const filtered = servicios.filter(s => {
             const d = new Date(s.fecha_solicitud);
             return (filtroMes==='all' || d.getMonth().toString()===filtroMes) && d.getFullYear().toString()===filtroAnio;
         });
+        
+        // Stats Equipo
+        const sc: any = {};
+        filtered.forEach(s => { const c = (s.coordinador||'SIN ASIGNAR').toUpperCase(); sc[c]=(sc[c]||0)+1; });
 
-        const coords: Record<string, number> = {};
-        filtered.forEach(s => { const c = (s.coordinador||"SIN ASIGNAR").toUpperCase(); coords[c]=(coords[c]||0)+1; });
-
+        // Filtrado Final
         let visible = filtered;
-        if(filtroCoordinador) visible = visible.filter(s=>(s.coordinador||"SIN ASIGNAR").toUpperCase()===filtroCoordinador);
+        if(filtroCoordinador) visible = visible.filter(s => (s.coordinador||'').toUpperCase() === filtroCoordinador);
 
-        const groups: Record<string, Ticket[]> = {};
-        const counts: Record<string, number> = { "SIN ASIGNAR":0,"ASIGNADO":0,"EN PROCESO":0,"PENDIENTE":0,"EJECUTADO":0,"REVISION CONTROL INTERNO":0,"QA":0,"CIERRE ADMINISTRATIVO":0,"CERRRADO":0,"CANCELADO":0 };
-
+        // Agrupar
+        const g: any = {};
+        const st: any = { "SIN ASIGNAR":0,"ASIGNADO":0,"EN PROCESO":0,"PENDIENTE":0,"EJECUTADO":0,"REVISION CONTROL INTERNO":0,"QA":0,"CIERRE ADMINISTRATIVO":0,"CERRRADO":0,"CANCELADO":0 };
         visible.forEach(s => {
-            let st = (s.estatus||"SIN ASIGNAR").toUpperCase().trim();
-            if(!counts.hasOwnProperty(st)) st="SIN ASIGNAR";
-            counts[st]++;
-            if(filtroEstatus && st!==filtroEstatus) return;
-            if(!groups[st]) groups[st]=[];
-            groups[st].push(s);
+            let status = (s.estatus||'SIN ASIGNAR').toUpperCase().trim();
+            if(!st.hasOwnProperty(status)) status="SIN ASIGNAR";
+            st[status]++;
+            if(filtroEstatus && status !== filtroEstatus) return;
+            if(!g[status]) g[status]=[];
+            g[status].push(s);
         });
 
-        return { grouped: groups, stats: counts, statsCoordinadores: coords, totalGlobal: filtered.length, totalVisible: visible.length };
+        return { grouped: g, stats: st, statsCoord: sc, total: visible.length };
     }, [servicios, filtroAnio, filtroMes, filtroEstatus, filtroCoordinador]);
 
-    if (cargando) return <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center text-white font-black animate-pulse">CARGANDO...</div>;
+    if (cargando) return <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center text-white font-black animate-pulse">CARGANDO WUOTTO...</div>;
 
     return (
         <div className="h-screen w-full flex flex-col bg-[#f8fafc] text-black font-sans antialiased uppercase overflow-hidden">
-            <header className="flex-none bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm z-50">
-                <div className="flex items-center gap-3"><div className="w-8 h-8 bg-[#121c32] rounded flex items-center justify-center text-white font-black italic">W</div><h1 className="text-lg font-black italic">Wuotto</h1></div>
-                <div className="text-right"><p className="text-[9px] font-black text-[#0055b8]">{rolUsuario}</p><p className="text-[10px] text-slate-700">{usuarioActivo}</p></div>
+            {/* Header */}
+            <header className="flex-none bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm z-50">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-[#121c32] rounded flex items-center justify-center text-white font-black italic">W</div>
+                    <h1 className="text-lg font-black italic tracking-tighter">Wuotto</h1>
+                </div>
+                <div className="text-right">
+                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[9px] font-black tracking-widest block mb-0.5">{rolUsuario}</span>
+                    <p className="text-[9px] text-slate-500 font-bold">{usuarioActivo}</p>
+                </div>
             </header>
 
-            <div className="flex-none bg-[#f8fafc] px-6 pt-4 pb-2 z-40 relative">
-                <div className="bg-white p-3 rounded-2xl border flex gap-4 items-center justify-between shadow-sm mb-4">
+            {/* Filtros Premium */}
+            <div className="flex-none bg-[#f8fafc] px-6 pt-6 pb-2 z-40 relative flex flex-col gap-4">
+                <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex gap-4">
-                        <select value={filtroAnio} onChange={(e)=>{setFiltroAnio(e.target.value); setFiltroMes('all');}} className="bg-slate-100 p-2 rounded-lg text-[10px] font-black">{periodos.anios.map(a=><option key={a} value={a}>{a}</option>)}</select>
-                        <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="bg-slate-100 p-2 rounded-lg text-[10px] font-black"><option value="all">TODO EL AÑO</option>{Array.from(periodos.meses[filtroAnio]||[]).map(m=><option key={m} value={m.toString()}>{MESES[m]}</option>)}</select>
-                        {(filtroEstatus||filtroCoordinador) && <button onClick={()=>{setFiltroEstatus(null); setFiltroCoordinador(null)}} className="bg-rose-50 text-rose-600 px-3 py-2 rounded-lg text-[9px] font-black">LIMPIAR FILTROS</button>}
+                        <select value={filtroAnio} onChange={(e)=>{setFiltroAnio(e.target.value); setFiltroMes('all')}} className="bg-slate-50 border-none rounded-lg text-xs font-black p-2 cursor-pointer hover:bg-slate-100">
+                            {periodos.anios.map(a=><option key={a} value={a}>{a}</option>)}
+                        </select>
+                        <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="bg-slate-50 border-none rounded-lg text-xs font-black p-2 cursor-pointer hover:bg-slate-100">
+                            <option value="all">TODO EL AÑO</option>
+                            {Array.from(periodos.meses[filtroAnio]||[]).map((m:any)=><option key={m} value={m}>{MESES[m]}</option>)}
+                        </select>
+                        {(filtroEstatus || filtroCoordinador) && (
+                            <button onClick={()=>{setFiltroEstatus(null); setFiltroCoordinador(null)}} className="bg-rose-50 text-rose-600 px-4 rounded-lg text-[9px] font-black hover:bg-rose-100 transition-colors">LIMPIAR</button>
+                        )}
                     </div>
+                    <button onClick={()=>{}} className="bg-emerald-600 text-white px-5 py-2 rounded-xl text-[9px] font-black shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95">DESCARGAR CSV</button>
                 </div>
 
-                {rolUsuario==='admin' && (
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-2">
-                        <button onClick={()=>setFiltroCoordinador(null)} className={`px-3 py-1 rounded-full border text-[9px] font-bold ${!filtroCoordinador?'bg-slate-800 text-white':'bg-white text-slate-500'}`}>TODOS</button>
-                        {Object.entries(statsCoordinadores).map(([c,n])=>(
-                            <button key={c} onClick={()=>setFiltroCoordinador(c)} className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-bold ${filtroCoordinador===c?'bg-blue-600 text-white':'bg-white text-slate-500'}`}>
-                                <span>{c.split('@')[0]}</span><span className="bg-slate-200 text-slate-600 px-1 rounded-full text-[8px]">{n}</span>
-                            </button>
-                        ))}
+                {/* Filtro Equipo (Burbujas) */}
+                {rolUsuario === 'admin' && (
+                    <div className="overflow-x-auto pb-2 no-scrollbar">
+                        <div className="flex gap-2">
+                            <button onClick={()=>setFiltroCoordinador(null)} className={`px-4 py-1.5 rounded-full border transition-all text-[9px] font-bold ${!filtroCoordinador ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>TODOS</button>
+                            {Object.entries(statsCoord).map(([c, n]: any) => (
+                                <button key={c} onClick={()=>setFiltroCoordinador(c)} className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all group ${filtroCoordinador===c ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${filtroCoordinador===c ? 'bg-white text-blue-600' : 'bg-slate-100 text-slate-400 group-hover:text-blue-500'}`}>{n}</div>
+                                    <span className="text-[9px] font-bold">{c.split('@')[0]}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 no-scrollbar snap-x">
-                    <div className="flex-none flex flex-col items-center cursor-pointer w-20" onClick={()=>setFiltroEstatus(null)}>
-                        <div className={`w-16 h-20 ${getStatusStyles('TOTAL').ribbon} rounded-b-2xl flex items-center justify-center text-white text-xl font-black shadow-lg`}>{filtroCoordinador?totalVisible:totalGlobal}</div>
-                        <span className="mt-2 text-[8px] font-black text-slate-400">TOTAL</span>
+                {/* Listones Estatus */}
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 no-scrollbar snap-x px-1">
+                    <div className="flex-none flex flex-col items-center cursor-pointer group w-20 snap-start" onClick={()=>setFiltroEstatus(null)}>
+                         <div className={`w-16 h-20 ${getStatusStyles('TOTAL').ribbon} rounded-b-2xl flex items-center justify-center text-white text-xl font-black shadow-lg transform transition-all group-hover:-translate-y-1`}>{total}</div>
+                         <span className="mt-3 text-[8px] font-black text-slate-400 tracking-widest">TOTAL</span>
                     </div>
-                    {Object.entries(stats).map(([k,v])=>(
-                        <div key={k} className="flex-none flex flex-col items-center cursor-pointer w-20" onClick={()=>setFiltroEstatus(k)}>
-                            <div className={`w-16 h-20 ${getStatusStyles(k).ribbon} rounded-b-2xl flex items-center justify-center text-white text-xl font-black shadow-lg ${filtroEstatus===k?'ring-4 ring-slate-200':''}`}>{v as number}</div>
-                            <span className={`mt-2 text-[8px] font-black text-center leading-none h-6 flex items-center ${filtroEstatus===k?'text-blue-600':'text-slate-400'}`}>{k}</span>
+                    {Object.entries(stats).map(([k, v]: any) => (
+                        <div key={k} className="flex-none flex flex-col items-center cursor-pointer group w-20 snap-start" onClick={()=>setFiltroEstatus(k)}>
+                            <div className={`w-16 h-20 ${getStatusStyles(k).ribbon} rounded-b-2xl flex items-center justify-center text-white text-xl font-black shadow-lg transform transition-all group-hover:-translate-y-1 ${filtroEstatus===k ? 'ring-4 ring-slate-200 translate-y-1' : ''}`}>{v}</div>
+                            <span className={`mt-3 text-[8px] font-black tracking-widest text-center h-6 flex items-center leading-none ${filtroEstatus===k ? 'text-blue-600' : 'text-slate-400'}`}>{k.replace(/\s/g, ' ')}</span>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto px-6 pb-20 pt-4">
-                <div className="space-y-8 pb-10">
-                    {Object.entries(grouped).map(([st, items]) => (
+            {/* Grid */}
+            <main className="flex-1 overflow-y-auto px-6 pb-20 pt-2 scroll-smooth">
+                <div className="space-y-8">
+                    {Object.entries(grouped).map(([st, items]: any) => (
                         <div key={st}>
-                            <div className="flex items-center gap-2 mb-3 sticky top-0 bg-[#f8fafc] py-2 z-10"><span className={`w-2 h-2 rounded-full ${getStatusStyles(st).dot}`}></span><h2 className="text-xs font-black text-slate-700">{st} ({items.length})</h2></div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {items.map(t => (
-                                    <div key={t.id} onClick={()=>setTicketSeleccionado(t)} className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-lg transition-all cursor-pointer relative overflow-hidden group">
-                                        <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-lg text-[7px] font-black ${getStatusStyles(t.estatus).badge}`}>{t.estatus}</div>
-                                        <p className="text-[9px] text-slate-400 font-mono mb-1">{t.codigo_servicio}</p>
-                                        <h3 className="text-[10px] font-black mb-1 line-clamp-2">{t.tipo_mantenimiento?.split('|')[2] || "GENERAL"}</h3>
-                                        <p className="text-[9px] text-slate-500 mb-3 line-clamp-2">{t.tipo_mantenimiento?.split('|')[0]}</p>
-                                        <div className="flex justify-between items-center text-[8px] text-slate-400 border-t pt-2">
-                                            <span>📅 {t.fecha_solicitud?.split('T')[0]}</span>
-                                            <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">VER DETALLE</span>
+                            <div className="flex items-center gap-3 mb-4 sticky top-0 bg-[#f8fafc]/95 backdrop-blur-sm py-2 z-10 border-b border-slate-100">
+                                <div className={`w-2.5 h-2.5 rounded-full ${getStatusStyles(st).dot}`}></div>
+                                <h2 className="text-xs font-black text-slate-700 tracking-widest">{st} <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded ml-2">{items.length}</span></h2>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {items.map((t: Ticket) => (
+                                    <div key={t.id} onClick={()=>setTicketSeleccionado(t)} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden">
+                                        <div className={`absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl text-[7px] font-black tracking-widest ${getStatusStyles(t.estatus).badge}`}>{t.estatus}</div>
+                                        <div className="space-y-2 mt-2">
+                                            <p className="text-[9px] font-mono text-slate-400">PRJ: {t.codigo_servicio}</p>
+                                            <h3 className="text-[11px] font-black text-slate-800 line-clamp-2 leading-tight min-h-[2.5em]">{t.tipo_mantenimiento?.split('|')[2] || "MANTENIMIENTO GENERAL"}</h3>
+                                            <p className="text-[9px] text-slate-500 font-medium line-clamp-2">{t.tipo_mantenimiento?.split('|')[0]}</p>
+                                        </div>
+                                        <div className="mt-4 pt-3 border-t border-slate-50 flex justify-between items-center">
+                                            <span className="text-[9px] font-bold text-slate-400">📅 {t.fecha_solicitud?.split('T')[0]}</span>
+                                            <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded group-hover:bg-blue-600 group-hover:text-white transition-colors">VER DETALLE →</span>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     ))}
+                    {total === 0 && <div className="text-center py-20 text-slate-300 font-black text-xl">NO HAY TICKETS EN ESTA VISTA</div>}
                 </div>
             </main>
 
