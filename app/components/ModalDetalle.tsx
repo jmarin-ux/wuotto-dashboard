@@ -166,7 +166,6 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
         <div className="fixed inset-0 bg-[#121c32]/85 backdrop-blur-md flex justify-center items-center z-[100] p-2 md:p-4 animate-in fade-in duration-300">
             <div className="bg-slate-50 w-full max-w-6xl h-full md:h-fit max-h-[96vh] md:max-h-[92vh] rounded-[1.5rem] md:rounded-[3rem] overflow-hidden flex flex-col shadow-2xl border border-white/20">
                 
-                {/* Header adaptable */}
                 <div className="bg-[#121c32] p-4 md:p-8 flex justify-between items-center text-white shrink-0 shadow-lg">
                     <div className="flex-1 text-center md:pl-10">
                         <div className="flex justify-center items-center gap-3 md:gap-4">
@@ -178,7 +177,6 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                     <button onClick={onClose} className="hover:bg-white/10 rounded-full p-2 md:p-3 text-xl md:text-2xl transition-all">✕</button>
                 </div>
 
-                {/* Tabs con scroll horizontal en móvil */}
                 <div className="flex border-b bg-white text-[8px] md:text-[10px] font-black px-4 md:px-8 overflow-x-auto no-scrollbar whitespace-nowrap">
                     <button onClick={()=>setActiveTab('info')} className={`flex-1 py-4 md:py-5 border-b-4 px-4 ${activeTab==='info'?'border-blue-600 text-blue-600':'border-transparent text-slate-400'}`}>GENERAL & ASIGNACIÓN</button>
                     <button onClick={()=>setActiveTab('reporte')} className={`flex-1 py-4 md:py-5 border-b-4 px-4 ${activeTab==='reporte'?'border-blue-600 text-blue-600':'border-transparent text-slate-400'}`}>REPORTE TÉCNICO</button>
@@ -191,13 +189,13 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                             <div className="lg:col-span-7 space-y-4 md:space-y-6">
                                 <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border shadow-sm">
                                     <div className="flex justify-between border-b pb-4 mb-4 md:mb-6">
-                                        <div><label className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-tighter">Empresa</label><p className="text-[11px] md:text-sm font-black text-[#121c32] line-clamp-1">{empresaTxt}</p></div>
-                                        <div className="text-right"><label className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-tighter">Cliente</label><p className="text-[11px] md:text-sm font-black text-blue-600 line-clamp-1">{clienteTxt}</p></div>
+                                        <div><label className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-tighter">Empresa</label><p className="text-[11px] md:text-sm font-black text-[#121c32] line-clamp-1 uppercase">{empresaTxt}</p></div>
+                                        <div className="text-right"><label className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-tighter">Cliente</label><p className="text-[11px] md:text-sm font-black text-blue-600 line-clamp-1 uppercase">{clienteTxt}</p></div>
                                     </div>
                                     <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl border-2 border-slate-50 shadow-inner min-h-[200px]">
                                         <div className="relative flex items-center justify-center mb-6">
                                             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-blue-100"></span></div>
-                                            <span className="relative bg-white px-4 md:px-6 text-[9px] md:text-[10px] font-black text-blue-500 tracking-widest uppercase">Ficha Técnica</span>
+                                            <span className="relative bg-white px-4 md:px-6 text-[9px] md:text-[10px] font-black text-blue-500 tracking-widest uppercase italic">Ficha Técnica</span>
                                         </div>
                                         {renderDetalleEjecutivo()}
                                     </div>
@@ -212,21 +210,17 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                                 </select>
                                                 <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none">
                                                     <option value="">-- SELEC. COORDINADOR --</option>
-                                                    {perfiles.filter((p:any)=>p.rol==='coordinador').map((p:any)=>
-                                                        <option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>
-                                                    )}
+                                                    {perfiles.filter((p:any)=>p.rol==='coordinador').map((p:any)=><option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>)}
                                                 </select>
                                             </>
                                         )}
                                         <select value={nuevoOperativo} onChange={(e)=>setNuevoOperativo(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none">
                                             <option value="">-- SELEC. OPERATIVO --</option>
-                                            {perfiles.filter((p:any)=>p.rol==='operativo').map((p:any)=>
-                                                <option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>
-                                            )}
+                                            {perfiles.filter((p:any)=>p.rol==='operativo').map((p:any)=><option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>)}
                                         </select>
                                     </div>
                                     <div className="flex items-end">
-                                        <button onClick={guardarAsignacion} className="w-full py-3 md:py-4 bg-[#121c32] text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] hover:bg-blue-600 transition-all shadow-md active:scale-95 uppercase">Guardar Cambios</button>
+                                        <button onClick={guardarAsignacion} className="w-full py-3 md:py-4 bg-[#121c32] text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] hover:bg-blue-600 transition-all shadow-md active:scale-95 uppercase italic">Guardar Cambios</button>
                                     </div>
                                 </div>
                             </div>
@@ -236,7 +230,7 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                     <div className="flex-1 bg-slate-50 p-4 md:p-6 rounded-xl md:rounded-3xl overflow-y-auto text-[10px] md:text-[11px] mb-4 shadow-inner normal-case italic leading-relaxed tracking-tight">{historialComentarios || "Sin comentarios."}</div>
                                     <div className="flex gap-2">
                                         <input type="text" value={nuevoComentario} onChange={(e)=>setNuevoComentario(e.target.value)} className="flex-1 p-3 md:p-4 border rounded-xl md:rounded-2xl text-[10px] md:text-xs normal-case outline-none" placeholder="Mensaje..." />
-                                        <button onClick={agregarComentario} className="bg-blue-600 text-white px-4 md:px-6 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs hover:bg-blue-700 shadow-lg transition-all uppercase">ENVIAR</button>
+                                        <button onClick={agregarComentario} className="bg-blue-600 text-white px-4 md:px-6 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs hover:bg-blue-700 shadow-lg transition-all uppercase italic">ENVIAR</button>
                                     </div>
                                 </div>
                             </div>
@@ -245,20 +239,20 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                         <div className="max-w-5xl mx-auto space-y-4 md:space-y-6 pb-10 animate-in fade-in">
                             {esFinalizado && !modoEdicion && (
                                 <div className="flex flex-col md:flex-row gap-3">
-                                    <button onClick={()=>generarPDF(ticket, evidenciasTecnico)} className="flex-1 py-4 md:py-5 bg-emerald-600 text-white rounded-xl md:rounded-[2rem] font-black text-[10px] md:text-xs shadow-xl uppercase tracking-widest hover:bg-emerald-700 transition-all">📥 Descargar Reporte PDF</button>
-                                    <button onClick={habilitarCorreccion} className="bg-white border-2 border-amber-500 text-amber-600 px-6 md:px-8 py-3 md:py-0 rounded-xl md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase transition-all hover:bg-amber-50">🔓 Editar Reporte</button>
+                                    <button onClick={()=>generarPDF(ticket, evidenciasTecnico)} className="flex-1 py-4 md:py-5 bg-emerald-600 text-white rounded-xl md:rounded-[2rem] font-black text-[10px] md:text-xs shadow-xl uppercase italic">📥 Descargar Reporte PDF</button>
+                                    <button onClick={habilitarCorreccion} className="bg-white border-2 border-amber-500 text-amber-600 px-6 md:px-8 py-3 md:py-0 rounded-xl md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase italic transition-all hover:bg-amber-50">🔓 Editar Reporte</button>
                                 </div>
                             )}
                             {modoEdicion && (
                                 <div className="bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl mb-4">
-                                    <p className="text-[9px] md:text-[10px] font-black text-amber-700 uppercase">⚠️ Modo Edición Activo</p>
+                                    <p className="text-[9px] md:text-[10px] font-black text-amber-700 uppercase tracking-widest">⚠️ MODO EDICIÓN ACTIVO</p>
                                     <p className="text-[10px] md:text-xs text-amber-600 normal-case italic">Motivo: {motivoCorreccion}</p>
                                 </div>
                             )}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                                 <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border text-center shadow-sm"><p className="text-[6px] md:text-[7px] font-black text-slate-400 uppercase">Inicio</p><p className="text-[9px] md:text-[10px] font-black text-blue-600">{horaInicio ? formatDate(horaInicio) : '--:--'}</p></div>
                                 <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border text-center shadow-sm"><p className="text-[6px] md:text-[7px] font-black text-slate-400 uppercase">Fin</p><p className="text-[9px] md:text-[10px] font-black text-blue-600">{horaFin ? formatDate(horaFin) : '--:--'}</p></div>
-                                <div className="bg-[#121c32] p-3 md:p-4 rounded-xl md:rounded-2xl text-center col-span-2 shadow-lg text-white"><p className="text-[6px] md:text-[7px] font-black text-blue-300 uppercase tracking-widest leading-none mb-1">Folio Servicio</p><p className="text-[10px] md:text-[11px] font-black italic uppercase">{ticket.codigo_servicio}</p></div>
+                                <div className="bg-[#121c32] p-3 md:p-4 rounded-xl md:rounded-2xl text-center col-span-2 shadow-lg text-white"><p className="text-[6px] md:text-[7px] font-black text-blue-300 uppercase tracking-widest leading-none mb-1 italic">Folio Servicio</p><p className="text-[10px] md:text-[11px] font-black italic uppercase">{ticket.codigo_servicio}</p></div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                 <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border shadow-sm space-y-4">
@@ -272,8 +266,8 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                             </div>
                             <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[3rem] border shadow-sm">
                                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
-                                    <h3 className="text-[10px] md:text-[11px] font-black text-[#121c32] uppercase tracking-widest text-center md:text-left">Evidencias Fotográficas</h3>
-                                    {puedeEditar && (<button onClick={()=>fileInputRef.current?.click()} className="w-full md:w-auto text-[10px] font-black text-blue-600 bg-blue-50 px-6 py-3 md:py-2 rounded-full hover:bg-blue-100 transition-all uppercase">{subiendoFoto ? 'CARGANDO...' : '+ Agregar Foto'}</button>)}
+                                    <h3 className="text-[10px] md:text-[11px] font-black text-[#121c32] uppercase tracking-widest text-center md:text-left italic">Evidencias Fotográficas</h3>
+                                    {puedeEditar && (<button onClick={()=>fileInputRef.current?.click()} className="w-full md:w-auto text-[10px] font-black text-blue-600 bg-blue-50 px-6 py-3 md:py-2 rounded-full hover:bg-blue-100 transition-all uppercase italic">{subiendoFoto ? 'CARGANDO...' : '+ Agregar Foto'}</button>)}
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFoto} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -288,8 +282,8 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                     ))}
                                 </div>
                             </div>
-                            {!horaInicio && (<button onClick={async () => { if (!confirm("¿Iniciar servicio?")) return; setCargandoBtn(true); const coords = await getCoords(); const start = new Date().toISOString(); await supabase.from('servicios').update({ hora_inicio: start, estatus: 'EN PROCESO', ubicacion_gps: coords }).eq('id', ticket.id); setHoraInicio(start); setNuevoEstatus('EN PROCESO'); setCargandoBtn(false); if(onUpdate) onUpdate(); }} disabled={cargandoBtn} className="w-full py-5 md:py-6 bg-blue-600 text-white rounded-2xl md:rounded-[2.5rem] font-black text-xs md:text-sm shadow-xl active:scale-95 transition-all uppercase tracking-widest">▶ Iniciar Ejecución Servicio</button>)}
-                            {puedeEditar && (<button onClick={finalizarServicio} disabled={cargandoBtn} className="w-full py-5 md:py-6 bg-emerald-600 text-white rounded-2xl md:rounded-[2.5rem] font-black text-xs md:text-sm shadow-xl active:scale-95 transition-all uppercase tracking-widest">{modoEdicion ? '✅ Guardar Cambios y Registrar Versión' : '✅ Finalizar y Registrar en Historial'}</button>)}
+                            {!horaInicio && (<button onClick={async () => { if (!confirm("¿Iniciar servicio?")) return; setCargandoBtn(true); const coords = await getCoords(); const start = new Date().toISOString(); await supabase.from('servicios').update({ hora_inicio: start, estatus: 'EN PROCESO', ubicacion_gps: coords }).eq('id', ticket.id); setHoraInicio(start); setNuevoEstatus('EN PROCESO'); setCargandoBtn(false); if(onUpdate) onUpdate(); }} disabled={cargandoBtn} className="w-full py-5 md:py-6 bg-blue-600 text-white rounded-2xl md:rounded-[2.5rem] font-black text-xs md:text-sm shadow-xl active:scale-95 transition-all uppercase tracking-widest italic">▶ Iniciar Ejecución Servicio</button>)}
+                            {puedeEditar && (<button onClick={finalizarServicio} disabled={cargandoBtn} className="w-full py-5 md:py-6 bg-emerald-600 text-white rounded-2xl md:rounded-[2.5rem] font-black text-xs md:text-sm shadow-xl active:scale-95 transition-all uppercase tracking-widest italic">{modoEdicion ? '✅ Guardar Cambios y Nueva Versión' : '✅ Finalizar y Registrar en Historial'}</button>)}
                         </div>
                     ) : (
                         <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in">
@@ -297,10 +291,10 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                 <div key={v.id} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[2rem] border shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 px-6 md:px-10 hover:shadow-md transition-all">
                                     <div className="flex-1 text-center sm:text-left">
                                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Snapshot: {formatDate(v.fecha_version)}</p>
-                                        <p className="text-[11px] text-slate-800 font-black normal-case mt-1">{v.razon_cambio}</p>
-                                        <p className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">Autor: {v.creado_por}</p>
+                                        <p className="text-[11px] text-slate-800 font-black normal-case mt-1 italic">{v.razon_cambio}</p>
+                                        <p className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter italic">Autor: {v.creado_por}</p>
                                     </div>
-                                    <button onClick={()=>generarPDF({...ticket, hallazgos: v.hallazgos, diagnostico: v.diagnostico, materiales: v.materiales, recomendaciones: v.recomendaciones}, v.evidencias_snapshot || [], true)} className="w-full sm:w-auto bg-[#121c32] text-white px-6 py-2.5 rounded-xl text-[9px] font-black shadow-md uppercase hover:bg-blue-600 transition-all">Ver PDF</button>
+                                    <button onClick={()=>generarPDF({...ticket, hallazgos: v.hallazgos, diagnostico: v.diagnostico, materiales: v.materiales, recomendaciones: v.recomendaciones}, v.evidencias_snapshot || [], true)} className="w-full sm:w-auto bg-[#121c32] text-white px-6 py-2.5 rounded-xl text-[9px] font-black shadow-md uppercase hover:bg-blue-600 transition-all italic">Ver PDF</button>
                                 </div>
                             ))}
                             {versiones.length === 0 && <div className="text-center py-20 text-slate-300 font-black italic uppercase text-lg opacity-40 tracking-widest uppercase">Sin versiones registradas</div>}
