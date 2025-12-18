@@ -113,7 +113,7 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
         ];
 
         return (
-            <div className="flex flex-col gap-5 md:gap-6 mt-4">
+            <div className="flex flex-col gap-5 md:gap-6 mt-4 text-black">
                 {blocks.filter(b => b.content).map((b, i) => (
                     <div key={i}>
                         <div className="flex items-center gap-3 mb-1.5 md:mb-2">
@@ -122,7 +122,7 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                         </div>
                         <div className="pl-11 md:pl-14">
                             {b.isLink ? (
-                                <a href={b.content} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 md:px-5 py-2 rounded-xl text-[9px] md:text-[10px] font-black hover:bg-blue-700 shadow-lg inline-block uppercase transition-all">🔗 VER EVIDENCIA</a>
+                                <a href={b.content} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 md:px-5 py-2 rounded-xl text-[9px] md:text-[10px] font-black hover:bg-blue-700 shadow-lg inline-block uppercase italic">🔗 VER EVIDENCIA</a>
                             ) : (
                                 <p className="text-[10px] md:text-[11px] text-slate-500 italic normal-case leading-relaxed">{b.content}</p>
                             )}
@@ -205,16 +205,16 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                         <h3 className="text-[8px] md:text-[9px] font-black text-blue-600 uppercase">Asignación</h3>
                                         {rolUsuario === 'admin' && (
                                             <>
-                                                <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} className="w-full p-2.5 md:p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none">
+                                                <select value={nuevoEstatus} onChange={(e)=>setNuevoEstatus(e.target.value)} className="w-full p-2.5 md:p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none text-black">
                                                     <option value="SIN ASIGNAR">⚪ SIN ASIGNAR</option><option value="ASIGNADO">🔵 ASIGNADO</option><option value="EN PROCESO">🟠 EN PROCESO</option><option value="PENDIENTE">🔴 PENDIENTE</option><option value="EJECUTADO">🟢 EJECUTADO</option><option value="CERRADO">🌳 CERRADO</option><option value="CANCELADO">⚫ CANCELADO</option>
                                                 </select>
-                                                <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none">
+                                                <select value={nuevoCoordinador} onChange={(e)=>setNuevoCoordinador(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none text-black">
                                                     <option value="">-- SELEC. COORDINADOR --</option>
                                                     {perfiles.filter((p:any)=>p.rol==='coordinador').map((p:any)=><option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>)}
                                                 </select>
                                             </>
                                         )}
-                                        <select value={nuevoOperativo} onChange={(e)=>setNuevoOperativo(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none">
+                                        <select value={nuevoOperativo} onChange={(e)=>setNuevoOperativo(e.target.value)} className="w-full p-2.5 md:p-3 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold uppercase outline-none text-black">
                                             <option value="">-- SELEC. OPERATIVO --</option>
                                             {perfiles.filter((p:any)=>p.rol==='operativo').map((p:any)=><option key={p.email} value={p.email}>{p.nombre_completo || p.email}</option>)}
                                         </select>
@@ -227,9 +227,9 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                             <div className="lg:col-span-5 h-full">
                                 <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border flex flex-col h-[400px] md:h-[520px] shadow-sm">
                                     <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 mb-4 uppercase tracking-widest italic">💬 Comentarios</h3>
-                                    <div className="flex-1 bg-slate-50 p-4 md:p-6 rounded-xl md:rounded-3xl overflow-y-auto text-[10px] md:text-[11px] mb-4 shadow-inner normal-case italic leading-relaxed tracking-tight">{historialComentarios || "Sin comentarios."}</div>
+                                    <div className="flex-1 bg-slate-50 p-4 md:p-6 rounded-xl md:rounded-3xl overflow-y-auto text-[10px] md:text-[11px] mb-4 shadow-inner normal-case italic leading-relaxed tracking-tight text-black">{historialComentarios || "Sin comentarios."}</div>
                                     <div className="flex gap-2">
-                                        <input type="text" value={nuevoComentario} onChange={(e)=>setNuevoComentario(e.target.value)} className="flex-1 p-3 md:p-4 border rounded-xl md:rounded-2xl text-[10px] md:text-xs normal-case outline-none" placeholder="Mensaje..." />
+                                        <input type="text" value={nuevoComentario} onChange={(e)=>setNuevoComentario(e.target.value)} className="flex-1 p-3 md:p-4 border rounded-xl md:rounded-2xl text-[10px] md:text-xs normal-case outline-none text-black" placeholder="Mensaje..." />
                                         <button onClick={agregarComentario} className="bg-blue-600 text-white px-4 md:px-6 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs hover:bg-blue-700 shadow-lg transition-all uppercase italic">ENVIAR</button>
                                     </div>
                                 </div>
@@ -244,27 +244,27 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                 </div>
                             )}
                             {modoEdicion && (
-                                <div className="bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl mb-4">
+                                <div className="bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl mb-4 text-black">
                                     <p className="text-[9px] md:text-[10px] font-black text-amber-700 uppercase tracking-widest">⚠️ MODO EDICIÓN ACTIVO</p>
                                     <p className="text-[10px] md:text-xs text-amber-600 normal-case italic">Motivo: {motivoCorreccion}</p>
                                 </div>
                             )}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-black">
                                 <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border text-center shadow-sm"><p className="text-[6px] md:text-[7px] font-black text-slate-400 uppercase">Inicio</p><p className="text-[9px] md:text-[10px] font-black text-blue-600">{horaInicio ? formatDate(horaInicio) : '--:--'}</p></div>
                                 <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border text-center shadow-sm"><p className="text-[6px] md:text-[7px] font-black text-slate-400 uppercase">Fin</p><p className="text-[9px] md:text-[10px] font-black text-blue-600">{horaFin ? formatDate(horaFin) : '--:--'}</p></div>
                                 <div className="bg-[#121c32] p-3 md:p-4 rounded-xl md:rounded-2xl text-center col-span-2 shadow-lg text-white"><p className="text-[6px] md:text-[7px] font-black text-blue-300 uppercase tracking-widest leading-none mb-1 italic">Folio Servicio</p><p className="text-[10px] md:text-[11px] font-black italic uppercase">{ticket.codigo_servicio}</p></div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-black">
                                 <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border shadow-sm space-y-4">
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block">Hallazgos</label><textarea value={hallazgos} onChange={(e)=>setHallazgos(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block">Diagnóstico Técnico</label><textarea value={diagnostico} onChange={(e)=>setDiagnostico(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
+                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block italic">Hallazgos</label><textarea value={hallazgos} onChange={(e)=>setHallazgos(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
+                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block italic">Diagnóstico Técnico</label><textarea value={diagnostico} onChange={(e)=>setDiagnostico(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
                                 </div>
-                                <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border shadow-sm space-y-4">
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block">Materiales</label><textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block">Recomendaciones</label><textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
+                                <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border shadow-sm space-y-4 text-black">
+                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block italic">Materiales</label><textarea value={materiales} onChange={(e)=>setMateriales(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
+                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase mb-1 ml-2 block italic">Recomendaciones</label><textarea value={recomendaciones} onChange={(e)=>setRecomendaciones(e.target.value)} disabled={!puedeEditar} className="w-full p-4 bg-slate-50 border-none rounded-2xl md:rounded-3xl text-xs normal-case min-h-[100px] md:min-h-[120px] outline-none shadow-inner" /></div>
                                 </div>
                             </div>
-                            <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[3rem] border shadow-sm">
+                            <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[3rem] border shadow-sm text-black">
                                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
                                     <h3 className="text-[10px] md:text-[11px] font-black text-[#121c32] uppercase tracking-widest text-center md:text-left italic">Evidencias Fotográficas</h3>
                                     {puedeEditar && (<button onClick={()=>fileInputRef.current?.click()} className="w-full md:w-auto text-[10px] font-black text-blue-600 bg-blue-50 px-6 py-3 md:py-2 rounded-full hover:bg-blue-100 transition-all uppercase italic">{subiendoFoto ? 'CARGANDO...' : '+ Agregar Foto'}</button>)}
@@ -276,7 +276,7 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                                             <img src={e.url_foto} className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-2xl md:rounded-3xl shadow-md cursor-pointer hover:scale-105 transition-all" onClick={()=>window.open(e.url_foto)} />
                                             <div className="flex-1 w-full">
                                                 <label className="text-[7px] font-black text-slate-400 block mb-1 uppercase text-center sm:text-left tracking-tighter leading-none">Nota de imagen</label>
-                                                <textarea value={e.descripcion || ''} onChange={async (ev)=> { const val = ev.target.value; await supabase.from('evidencias').update({ descripcion: val }).eq('id', e.id); setEvidenciasTecnico(evidenciasTecnico.map(x => x.id === e.id ? { ...x, descripcion: val } : x)); }} readOnly={!puedeEditar} className="w-full p-2 text-[10px] bg-white rounded-xl h-16 md:h-16 normal-case outline-none focus:ring-1 transition-all shadow-sm" />
+                                                <textarea value={e.descripcion || ''} onChange={async (ev)=> { const val = ev.target.value; await supabase.from('evidencias').update({ descripcion: val }).eq('id', e.id); setEvidenciasTecnico(evidenciasTecnico.map(x => x.id === e.id ? { ...x, descripcion: val } : x)); }} readOnly={!puedeEditar} className="w-full p-2 text-[10px] bg-white rounded-xl h-16 md:h-16 normal-case outline-none focus:ring-1 transition-all shadow-sm text-black" />
                                             </div>
                                         </div>
                                     ))}
@@ -288,7 +288,7 @@ export const ModalDetalle = ({ ticket, onClose, onUpdate, perfiles, usuarioActiv
                     ) : (
                         <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in">
                             {versiones.map((v) => (
-                                <div key={v.id} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[2rem] border shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 px-6 md:px-10 hover:shadow-md transition-all">
+                                <div key={v.id} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[2rem] border shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 px-6 md:px-10 hover:shadow-md transition-all text-black">
                                     <div className="flex-1 text-center sm:text-left">
                                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Snapshot: {formatDate(v.fecha_version)}</p>
                                         <p className="text-[11px] text-slate-800 font-black normal-case mt-1 italic">{v.razon_cambio}</p>

@@ -34,7 +34,9 @@ export default function DashboardPage() {
         }
 
         return () => {
-            supabase.channel('cambios-servicios').unsubscribe();
+            if (supabase.channel('cambios-servicios')) {
+                supabase.channel('cambios-servicios').unsubscribe();
+            }
         }
     }, []);
 
@@ -47,7 +49,7 @@ export default function DashboardPage() {
 
         let query = supabase.from('servicios').select('*');
         
-        // ADMIN VE TODO (Incluso sin asignar) | OTROS FILTRAN POR EMAIL
+        // ADMIN VE TODO | OTROS FILTRAN POR EMAIL
         if (userRole === 'coordinador') {
             query = query.eq('coordinador', email);
         } else if (userRole === 'operativo') {
@@ -134,21 +136,21 @@ export default function DashboardPage() {
                         <p className="text-[10px] font-black opacity-40 mb-0.5 uppercase">Bienvenido</p>
                         <p className="text-xs font-black text-white tracking-widest uppercase truncate max-w-[150px]">{nombreUsuario}</p>
                     </div>
-                    <button onClick={()=>{localStorage.clear(); window.location.reload();}} className="bg-rose-500 hover:bg-rose-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[9px] md:text-[10px] font-black shadow-lg transition-all active:scale-95">SALIR 🚪</button>
+                    <button onClick={()=>{localStorage.clear(); window.location.reload();}} className="bg-rose-500 hover:bg-rose-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black shadow-lg transition-all active:scale-95">SALIR 🚪</button>
                 </div>
             </header>
 
             <div className="flex-none bg-white border-b p-3 md:p-4 px-4 md:px-8 flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-between shadow-sm">
                 <div className="flex gap-2 md:gap-4 items-center overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                    <select value={filtroAnio} onChange={(e)=>setFiltroAnio(e.target.value)} className="p-2 md:p-3 border-2 border-slate-100 rounded-xl text-[10px] md:text-[11px] font-black bg-slate-50 uppercase cursor-pointer"><option value="2025">2025</option><option value="2024">2024</option></select>
-                    <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="p-2 md:p-3 border-2 border-slate-100 rounded-xl text-[10px] md:text-[11px] font-black bg-slate-50 min-w-[110px] md:min-w-[140px] uppercase cursor-pointer"><option value="all">TODO EL AÑO</option>{MESES.map((m, i) => <option key={m} value={i}>{m}</option>)}</select>
-                    <div className="flex flex-col justify-center px-4 md:px-6 py-1 bg-blue-50 rounded-xl border-2 border-blue-100 min-w-[100px] md:min-w-[140px] shadow-sm">
+                    <select value={filtroAnio} onChange={(e)=>setFiltroAnio(e.target.value)} className="p-2 md:p-3 border-2 border-slate-100 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black bg-slate-50 uppercase cursor-pointer"><option value="2025">2025</option><option value="2024">2024</option></select>
+                    <select value={filtroMes} onChange={(e)=>setFiltroMes(e.target.value)} className="p-2 md:p-3 border-2 border-slate-100 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black bg-slate-50 min-w-[110px] md:min-w-[140px] uppercase cursor-pointer"><option value="all">TODO EL AÑO</option>{MESES.map((m, i) => <option key={m} value={i}>{m}</option>)}</select>
+                    <div className="flex flex-col justify-center px-4 md:px-6 py-1 bg-blue-50 rounded-xl md:rounded-2xl border-2 border-blue-100 min-w-[100px] md:min-w-[140px] shadow-sm">
                         <span className="text-[7px] md:text-[8px] font-black text-blue-400 uppercase">{rolUsuario === 'admin' ? 'PANEL CONTROL' : 'MIS TAREAS'}</span>
                         <span className="text-lg md:text-xl font-black text-blue-700 leading-none">{totalM}</span>
                     </div>
                 </div>
                 <div className="flex-1 md:max-w-sm">
-                    <input type="text" value={filtroCliente} onChange={(e)=>setFiltroCliente(e.target.value)} placeholder="🔍 BUSCAR..." className="w-full p-2.5 md:p-3 border-2 border-slate-100 rounded-xl text-[10px] md:text-[11px] font-black outline-none uppercase" />
+                    <input type="text" value={filtroCliente} onChange={(e)=>setFiltroCliente(e.target.value)} placeholder="🔍 BUSCAR..." className="w-full p-2.5 md:p-3 border-2 border-slate-100 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black outline-none uppercase" />
                 </div>
             </div>
 
@@ -177,7 +179,7 @@ export default function DashboardPage() {
                 })}
             </div>
 
-            <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 pt-6 md:pt-10 bg-slate-50/50 scroll-smooth">
+            <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 pt-6 md:pt-10 bg-slate-50/50 scroll-smooth text-black">
                 {cargando ? (
                     <div className="h-full flex items-center justify-center text-slate-400 font-black tracking-widest uppercase animate-pulse">Sincronizando...</div>
                 ) : (
