@@ -1,132 +1,259 @@
-// lib/pdfGenerator.ts
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { formatDate } from './utils';
 
-/**
- * Función auxiliar para cargar una imagen desde una URL y convertirla para jsPDF
- */
-const cargarImagen = (url: string): Promise<HTMLImageElement> => {
+// Función auxiliar para convertir URL de imagen a Base64 (necesario para jsPDF)
+const getBase64ImageFromURL = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = "anonymous"; // Evita errores de CORS con Supabase
-        img.onload = () => resolve(img);
-        img.onerror = (e) => reject(e);
+        img.crossOrigin = "Anonymous";
         img.src = url;
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL("image/jpeg");
+            resolve(dataURL);
+        };
+        img.onerror = (error) => reject(error);
     });
 };
 
-export const generarPDF = async (ticket: any, evidencias: any[] = [], esVersionHistorica = false) => {
-    try {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
-        const contentWidth = pageWidth - (margin * 2);
+export const generarPDF = async (ticket: any, datosTecnicos: any, esSnapshot: boolean = false) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 15;
+    const usableWidth = pageWidth - (margin * 2);
+    const colWidth = usableWidth / 2; // Ancho exacto del 50%
 
-        // --- 1. ENCABEZADO ESTILIZADO ---
-        doc.setFillColor(18, 28, 50); // Color #121c32
-        doc.rect(0, 0, pageWidth, 40, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
+    const azulWuotto = "#121c32";
+    const rojoFolio = "#dc2626";
+    const grisFondo = "#f8fafc";
+
+    const datos = esSnapshot ? datosTecnicos : ticket;
+    let yPos = 20;
+
+    // --- 1. ENCABEZADO PREMIUM ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(azulWuotto);
+    doc.text("WUOTTO", margin, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Construcciones, HVAC & Mantenimiento", margin, yPos);
+
+    // Folio Alineado a la derecha
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(rojoFolio);
+    doc.text(`FOLIO: ${ticket.codigo_servicio}`, pageWidth - margin, 20, { align: "right" });
+
+    yPos += 15;
+
+    // --- 2. TABLA DE DATOS (50/50 FORZADO) ---
+    // Preparamos los textos con saltos de línea manuales para limpieza
+    const col1Content = `CLIENTE:\n${ticket["Empresa"] || '---'}\n\nSOLICITANTE:\n${ticket["Nombre Completo"] || '---'}\n\nTIPO DE SERVICIO:\n${ticket.tipo_mantenimiento || '---'}`;
+    const col2Content = `DIRECCIÓN:\n${ticket.ubicacion || 'Sin dirección registrada'}\n\nTELÉFONO:\n${ticket["Número de Contacto"] || '---'}\n\nFECHA SOLICITUD:\n${formatDate(ticket.fecha_solicitud)}`;
+
+    autoTable(doc, {
+        startY: yPos,
+        head: [['DATOS DEL SERVICIO', 'UBICACIÓN Y CONTACTO']],
+        body: [[col1Content, col2Content]],
+        theme: 'grid',
+        headStyles: {
+            fillColor: azulWuotto,
+            textColor: 255,
+            halign: 'center',
+            valign: 'middle',
+            fontStyle: 'bold',
+            fontSize: 9,
+            cellPadding: 5
+        },
+        bodyStyles: {
+            fontSize: 8,
+            cellPadding: 6,
+            valign: 'top',
+            lineColor: [200, 200, 200]
+        },
+        // ESTO ES LO CLAVE: Forzar el ancho exacto
+        columnStyles: {
+            0: { cellWidth: colWidth },
+            1: { cellWidth: colWidth }
+        }
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 12;
+
+    // --- 3. REGISTRO DE TIEMPOS Y GPS (DISEÑO TIPO TARJETA) ---
+    // Validación de texto GPS para que se vea profesional
+    const txtGpsInicio = ticket.ubicacion_gps_inicio || ticket.ubicacion_gps;
+    const txtGpsFin = ticket.ubicacion_gps_fin;
+    const mostrarGpsInicio = txtGpsInicio && txtGpsInicio !== "GPS Desactivado" ? txtGpsInicio : "No disponible (Sin permiso)";
+    const mostrarGpsFin = txtGpsFin ? txtGpsFin : (ticket.hora_fin ? "No disponible" : "Pendiente");
+
+    // Fondo del bloque
+    doc.setFillColor(grisFondo);
+    doc.setDrawColor(220);
+    doc.roundedRect(margin, yPos, usableWidth, 28, 2, 2, 'FD');
+
+    // Títulos
+    doc.setFontSize(8);
+    doc.setTextColor(azulWuotto);
+    doc.setFont("helvetica", "bold");
+    
+    const centroIzq = margin + (usableWidth / 4);
+    const centroDer = pageWidth - margin - (usableWidth / 4);
+
+    // Columna Inicio
+    doc.text("REGISTRO DE INICIO", centroIzq, yPos + 8, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.text(`Fecha: ${formatDate(ticket.hora_inicio) || '--'}`, centroIzq, yPos + 14, { align: "center" });
+    doc.setTextColor(100);
+    doc.setFontSize(7);
+    doc.text(`GPS: ${mostrarGpsInicio}`, centroIzq, yPos + 20, { align: "center" });
+
+    // Separador Vertical
+    doc.setDrawColor(200);
+    doc.line(pageWidth / 2, yPos + 4, pageWidth / 2, yPos + 24);
+
+    // Columna Cierre
+    doc.setFontSize(8);
+    doc.setTextColor(azulWuotto);
+    doc.setFont("helvetica", "bold");
+    doc.text("REGISTRO DE CIERRE", centroDer, yPos + 8, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.text(`Fecha: ${formatDate(ticket.hora_fin) || '--'}`, centroDer, yPos + 14, { align: "center" });
+    doc.setTextColor(100);
+    doc.setFontSize(7);
+    doc.text(`GPS: ${mostrarGpsFin}`, centroDer, yPos + 20, { align: "center" });
+
+    yPos += 40;
+
+    // --- 4. INFORME TÉCNICO (BLOQUES LIMPIOS) ---
+    const crearBloque = (titulo: string, contenido: string) => {
+        if (yPos > 260) { doc.addPage(); yPos = 20; }
+
+        // Encabezado de sección
+        doc.setFillColor(azulWuotto);
+        doc.rect(margin, yPos, usableWidth, 7, 'F');
+        doc.setTextColor(255);
         doc.setFont("helvetica", "bold");
-        doc.text("REPORTE TÉCNICO DE SERVICIO", margin, 18);
-        
-        doc.setFontSize(10);
+        doc.setFontSize(9);
+        doc.text(titulo, pageWidth / 2, yPos + 5, { align: "center" });
+
+        yPos += 10;
+
+        // Contenido
+        doc.setTextColor(0);
         doc.setFont("helvetica", "normal");
-        doc.text(`FOLIO: ${ticket.codigo_servicio || 'SIN FOLIO'}`, margin, 26);
-        doc.text(`ESTADO: ${ticket.estatus || 'N/A'}`, margin, 32);
-        if(esVersionHistorica) doc.text("(Copia de Historial / Snapshot)", pageWidth - 65, 32);
-
-        // --- 2. INFORMACIÓN GENERAL ---
-        doc.setTextColor(0, 0, 0);
-        let y = 55;
-
-        const parts = (ticket.tipo_mantenimiento || "").split('|');
-        const servicio = parts[0] || "General";
-        const empresa = parts[1] || "N/A";
-        const cliente = parts[2] || "N/A";
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold"); doc.text("CLIENTE:", margin, y);
-        doc.setFont("helvetica", "normal"); doc.text(cliente, margin + 25, y);
+        doc.setFontSize(9);
         
-        doc.setFont("helvetica", "bold"); doc.text("SUCURSAL:", margin + 95, y);
-        doc.setFont("helvetica", "normal"); doc.text(empresa, margin + 120, y);
-        y += 10;
-
-        doc.setFont("helvetica", "bold"); doc.text("SERVICIO:", margin, y);
-        doc.setFont("helvetica", "normal"); doc.text(servicio, margin + 25, y);
-        y += 15;
-
-        // --- 3. BLOQUES DE TEXTO TÉCNICO ---
-        const secciones = [
-            { titulo: "HALLAZGOS:", contenido: ticket.hallazgos },
-            { titulo: "DIAGNÓSTICO TÉCNICO:", contenido: ticket.diagnostico },
-            { titulo: "MATERIALES UTILIZADOS:", contenido: ticket.materiales },
-            { titulo: "RECOMENDACIONES:", contenido: ticket.recomendaciones }
-        ];
-
-        secciones.forEach((sec) => {
-            if (y > pageHeight - 30) { doc.addPage(); y = margin; } // Salto de página si no hay espacio
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.text(sec.titulo, margin, y);
-            y += 6;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            const textLines = doc.splitTextToSize(sec.contenido || "No registrado.", contentWidth);
-            doc.text(textLines, margin, y);
-            
-            y += (textLines.length * 5) + 10; // Espaciado dinámico basado en líneas de texto
+        const texto = contenido || "Sin comentarios registrados.";
+        const lineas = doc.splitTextToSize(texto, usableWidth - 4);
+        
+        // Imprimir líneas centradas
+        lineas.forEach((line: string) => {
+            doc.text(line, pageWidth / 2, yPos, { align: "center" });
+            yPos += 5;
         });
+        yPos += 8;
+    };
 
-        // --- 4. EVIDENCIAS FOTOGRÁFICAS ---
-        if (evidencias && evidencias.length > 0) {
-            if (y > pageHeight - 100) { doc.addPage(); y = margin; }
-            
-            doc.setFont("helvetica", "bold");
-            doc.text("EVIDENCIA FOTOGRÁFICA:", margin, y);
-            y += 10;
+    const hallazgos = datos.hallazgos || datos.hallazgos_guardado;
+    const diagnostico = datos.diagnostico || datos.diagnostico_guardado;
+    const materiales = datos.materiales || datos.materiales_guardado;
+    const recomendaciones = datos.recomendaciones || datos.recomendaciones_guardado;
 
-            for (let i = 0; i < evidencias.length; i++) {
-                const ev = evidencias[i];
-                try {
-                    const imgData = await cargarImagen(ev.url_foto);
+    crearBloque("HALLAZGOS ENCONTRADOS", hallazgos);
+    crearBloque("DIAGNÓSTICO TÉCNICO", diagnostico);
+    crearBloque("MATERIALES / HERRAMIENTAS", materiales);
+    crearBloque("RECOMENDACIONES", recomendaciones);
+
+    // --- 5. EVIDENCIA FOTOGRÁFICA (INCRUSTACIÓN REAL) ---
+    if (yPos > 220) { doc.addPage(); yPos = 20; }
+
+    doc.setFillColor(azulWuotto);
+    doc.rect(margin, yPos, usableWidth, 7, 'F');
+    doc.setTextColor(255);
+    doc.setFont("helvetica", "bold");
+    doc.text("EVIDENCIA FOTOGRÁFICA", pageWidth / 2, yPos + 5, { align: "center" });
+    yPos += 15;
+
+    // Procesar imágenes
+    const evidenciasList = esSnapshot ? datos.evidencias_snapshot : datos.evidencias_actuales; // Asegúrate de pasar las evidencias en datosTecnicos cuando llamas a la función
+
+    if (evidenciasList && evidenciasList.length > 0) {
+        let xImg = margin;
+        // Ajustamos tamaño de imagen (4 imágenes por fila aprox)
+        const imgWidth = (usableWidth - 15) / 4; 
+        const imgHeight = 35;
+
+        for (const ev of evidenciasList) {
+            try {
+                // Intentamos convertir a base64
+                if (ev.url_foto) {
+                    const base64Img = await getBase64ImageFromURL(ev.url_foto);
                     
-                    // Ajustar tamaño de imagen (2 por fila o 1 grande)
-                    const imgW = 85;
-                    const imgH = 65;
-                    const posX = (i % 2 === 0) ? margin : margin + imgW + 10;
-
-                    doc.addImage(imgData, 'JPEG', posX, y, imgW, imgH);
-                    
-                    // Si hay descripción de imagen
-                    if (ev.descripcion) {
-                        doc.setFontSize(8);
-                        doc.text(ev.descripcion, posX, y + imgH + 5, { maxWidth: imgW });
+                    // Verificar si cabe en la línea
+                    if (xImg + imgWidth > pageWidth - margin) {
+                        xImg = margin;
+                        yPos += imgHeight + 10;
                     }
-
-                    if (i % 2 !== 0) y += imgH + 25; // Bajar Y cada 2 fotos
-                    
-                    // Verificar si necesitamos nueva página para fotos
-                    if (y > pageHeight - 80 && i < evidencias.length - 1) {
+                    // Verificar si cabe en la página
+                    if (yPos + imgHeight > 270) {
                         doc.addPage();
-                        y = margin;
+                        yPos = 20;
+                        xImg = margin;
                     }
-                } catch (err) {
-                    console.warn("No se pudo cargar una imagen para el PDF", err);
+
+                    doc.addImage(base64Img, 'JPEG', xImg, yPos, imgWidth, imgHeight);
+                    
+                    // Borde a la imagen
+                    doc.setDrawColor(200);
+                    doc.rect(xImg, yPos, imgWidth, imgHeight);
+                    
+                    xImg += imgWidth + 5;
                 }
+            } catch (error) {
+                console.error("No se pudo cargar imagen:", error);
+                // Si falla, ponemos un placeholder de texto
+                doc.setFontSize(6);
+                doc.setTextColor(150);
+                doc.text("Img no disponible", xImg + 5, yPos + 15);
+                xImg += imgWidth + 5;
             }
         }
-
-        // --- 5. GUARDAR ---
-        const nombreArchivo = `REPORTE_${ticket.codigo_servicio || 'SIN_FOLIO'}.pdf`;
-        doc.save(nombreArchivo);
-
-    } catch (e: any) {
-        console.error("Error PDF:", e);
-        alert("Error al generar PDF: " + e.message);
+        yPos += 45; // Espacio después de las fotos
+    } else {
+        doc.setTextColor(100);
+        doc.setFont("helvetica", "italic");
+        doc.text("No se adjuntaron fotografías en este reporte.", pageWidth / 2, yPos, { align: "center" });
+        yPos += 20;
     }
+
+    // --- 6. FIRMAS ---
+    if (yPos > 250) { doc.addPage(); yPos = 250; } else { yPos = 265; } // Forzar al final
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.5);
+    
+    // Líneas
+    doc.line(margin + 10, yPos, margin + 70, yPos); // Izquierda
+    doc.line(pageWidth - margin - 70, yPos, pageWidth - margin - 10, yPos); // Derecha
+
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    
+    doc.text("TÉCNICO RESPONSABLE", margin + 40, yPos + 5, { align: "center" });
+    doc.text("FIRMA DE CONFORMIDAD", pageWidth - margin - 40, yPos + 5, { align: "center" });
+
+    // Guardar
+    const nombreArchivo = `OS_${ticket.codigo_servicio}.pdf`;
+    doc.save(nombreArchivo);
 };
