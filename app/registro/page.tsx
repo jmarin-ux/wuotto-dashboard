@@ -3,12 +3,13 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import Link from 'next/link'
 
-// Definimos la interfaz para el tipado de los datos
+// Interfaz para asegurar la integridad de los datos capturados
 interface RegistroForm {
     nombre: string;
     email: string;
     empresa: string;
     telefono: string;
+    puesto: string; 
 }
 
 export default function RegistroPage() {
@@ -19,36 +20,38 @@ export default function RegistroPage() {
         nombre: '',
         email: '',
         empresa: '',
-        telefono: ''
+        telefono: '',
+        puesto: ''
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // normalización de datos para la base de datos
+        // Optimización: Limpieza y normalización de datos antes de enviar
         const emailLimpio = formData.email.trim().toLowerCase();
         const nombreLimpio = formData.nombre.trim().toUpperCase();
         const empresaLimpia = formData.empresa.trim().toUpperCase();
+        const puestoLimpio = formData.puesto.trim().toUpperCase();
 
         setEnviando(true);
 
         try {
-            // 1. Verificar si ya existe en perfiles
+            // 1. Verificación de duplicados para evitar errores de llave primaria
             const { data: existe, error: errorCheck } = await supabase
                 .from('perfiles')
                 .select('email')
                 .ilike('email', emailLimpio)
                 .maybeSingle();
 
-            if (errorCheck) throw new Error("Error al verificar disponibilidad.");
+            if (errorCheck) throw new Error("Error al conectar con el servidor.");
             
             if (existe) {
-                alert("Este correo YA está registrado. Puedes ir directamente a solicitar servicio.");
+                alert("Este correo ya está registrado en el sistema central.");
                 setEnviando(false);
                 return;
             }
 
-            // 2. Insertar en solicitudes_registro (sala de espera)
+            // 2. Inserción en la sala de espera (solicitudes_registro)
             const { error: errorInsert } = await supabase
                 .from('solicitudes_registro')
                 .insert({
@@ -56,32 +59,34 @@ export default function RegistroPage() {
                     email: emailLimpio,
                     empresa: empresaLimpia,
                     telefono: formData.telefono.trim(),
-                    created_at: new Date().toISOString()
+                    puesto: puestoLimpio,
+                    created_at: new Date().toISOString() // Sincronización de tiempo
                 });
 
             if (errorInsert) throw errorInsert;
-
             setTerminado(true);
 
         } catch (error: any) {
-            alert("Ocurrió un error: " + (error.message || "Error desconocido"));
+            alert("Error de registro: " + (error.message || "Intente más tarde"));
         } finally {
             setEnviando(false);
         }
     };
 
+    // Pantalla de Éxito Optimizada
     if (terminado) {
         return (
-            <div className="min-h-screen bg-[#121c32] flex items-center justify-center p-4">
-                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border-t-8 border-amber-400 animate-in fade-in zoom-in duration-500">
-                    <div className="text-6xl mb-4">⏳</div>
-                    <h2 className="text-2xl font-black text-[#121c32] mb-2 uppercase italic">Solicitud Recibida</h2>
-                    <p className="text-slate-500 text-sm mb-6 font-medium">
-                        Gracias <span className="text-[#121c32] font-bold">{formData.nombre.split(' ')[0].toUpperCase()}</span>. 
-                        Un administrador validará tus datos y activará tu cuenta en breve.
+            <div className="min-h-screen bg-[#121c32] flex items-center justify-center p-6 relative overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+                <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-md w-full text-center border-t-8 border-amber-400 animate-in fade-in zoom-in duration-700 z-10">
+                    <div className="text-7xl mb-6">📩</div>
+                    <h2 className="text-2xl font-black text-[#121c32] mb-3 uppercase italic leading-none">Solicitud Enviada</h2>
+                    <p className="text-slate-500 text-[11px] font-bold mb-8 leading-relaxed uppercase">
+                        Gracias <span className="text-blue-600">{formData.nombre.split(' ')[0]}</span>. 
+                        Tu acceso está en proceso de validación por nuestro equipo administrativo.
                     </p>
-                    <Link href="/solicitud" className="block w-full bg-[#121c32] text-white py-4 rounded-xl font-black hover:bg-blue-900 transition-all uppercase text-xs tracking-widest shadow-lg">
-                        VOLVER AL INICIO
+                    <Link href="/" className="block w-full bg-[#121c32] text-white py-5 rounded-2xl font-black hover:bg-blue-900 transition-all uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95">
+                        VOLVER AL MENÚ PRINCIPAL
                     </Link>
                 </div>
             </div>
@@ -89,87 +94,56 @@ export default function RegistroPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#121c32] flex flex-col items-center justify-center p-4 md:p-8">
-            <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                <div className="bg-amber-400 p-6 text-[#121c32] text-center border-b-4 border-black/10">
-                    <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">Alta de Nuevo Cliente</h1>
-                    <p className="text-[10px] font-black opacity-60 mt-2 tracking-[0.2em]">SISTEMA CENTRAL WUOTTO</p>
+        <div className="min-h-screen bg-[#121c32] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            {/* Efectos visuales de fondo consistentes con Wuotto Central */}
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+            
+            <div className="w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-500 z-10 border border-white/20">
+                <div className="bg-amber-400 p-8 text-[#121c32] text-center border-b-4 border-black/5">
+                    <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">Alta de Cliente</h1>
+                    <p className="text-[10px] font-black opacity-60 mt-2 tracking-[0.3em] uppercase">Intelligence & Service Portal</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-5">
-                    {/* NOMBRE COMPLETO */}
+                <form onSubmit={handleSubmit} className="p-10 space-y-5">
+                    {/* NOMBRE */}
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Nombre Completo (USAR MAYÚSCULAS) *
-                        </label>
-                        <input 
-                            required 
-                            type="text" 
-                            placeholder="NOMBRE APELLIDO PATERNO APELLIDO MATERNO"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all uppercase"
-                            value={formData.nombre} 
-                            onChange={e => setFormData({...formData, nombre: e.target.value})} 
-                        />
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Nombre Completo *</label>
+                        <input required type="text" placeholder="NOMBRE Y APELLIDOS" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all uppercase" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
                     </div>
 
-                    {/* CORREO CORPORATIVO */}
+                    {/* CORREO */}
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Correo Corporativo *
-                        </label>
-                        <input 
-                            required 
-                            type="email" 
-                            placeholder="usuario@empresa.com"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all"
-                            value={formData.email} 
-                            onChange={e => setFormData({...formData, email: e.target.value})} 
-                        />
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Correo Corporativo *</label>
+                        <input required type="email" placeholder="usuario@empresa.com" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                     </div>
 
-                    {/* EMPRESA */}
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Empresa / Razón Social (USAR MAYÚSCULAS) *
-                        </label>
-                        <input 
-                            required 
-                            type="text" 
-                            placeholder="NOMBRE DE LA COMPAÑÍA EN MAYÚSCULAS"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all uppercase"
-                            value={formData.empresa} 
-                            onChange={e => setFormData({...formData, empresa: e.target.value})} 
-                        />
+                    {/* EMPRESA Y PUESTO (GRID) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Empresa *</label>
+                            <input required type="text" placeholder="RAZÓN SOCIAL" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all uppercase" value={formData.empresa} onChange={e => setFormData({...formData, empresa: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Puesto / Cargo *</label>
+                            <input required type="text" placeholder="EJ. GERENTE" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all uppercase" value={formData.puesto} onChange={e => setFormData({...formData, puesto: e.target.value})} />
+                        </div>
                     </div>
 
                     {/* TELÉFONO */}
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Teléfono de Contacto
-                        </label>
-                        <input 
-                            type="tel" 
-                            placeholder="10 DÍGITOS"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all"
-                            value={formData.telefono} 
-                            onChange={e => setFormData({...formData, telefono: e.target.value})} 
-                        />
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Teléfono de Contacto *</label>
+                        <input required type="tel" placeholder="10 DÍGITOS" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-700 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/5 transition-all" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
                     </div>
 
-                    <div className="pt-2">
-                        <button 
-                            type="submit" 
-                            disabled={enviando} 
-                            className="w-full bg-[#121c32] hover:bg-blue-900 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed uppercase italic tracking-wider"
-                        >
-                            {enviando ? 'PROCESANDO SOLICITUD...' : 'SOLICITAR ACCESO'}
+                    <div className="pt-4">
+                        <button type="submit" disabled={enviando} className="w-full bg-[#121c32] hover:bg-blue-900 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-900/20 transition-all active:scale-95 disabled:opacity-70 uppercase italic tracking-widest text-xs">
+                            {enviando ? 'Verificando Sistema...' : 'Solicitar Acceso al Portal'}
                         </button>
                     </div>
                     
                     <div className="text-center pt-2">
-                        <Link href="/solicitud" className="text-[10px] font-black text-slate-400 hover:text-[#121c32] transition-colors flex items-center justify-center gap-2 uppercase tracking-tighter">
-                            <span>¿YA TIENES CUENTA?</span>
-                            <span className="text-amber-500 underline">IR A SOLICITUD</span>
+                        <Link href="/" className="text-[10px] font-black text-slate-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
+                            ¿Ya tienes cuenta? <span className="underline ml-1">Ir al Inicio</span>
                         </Link>
                     </div>
                 </form>
